@@ -182,7 +182,15 @@ enum PathSegment  { case move(to:), line(to:), curve(to:control1:control2:) }
   1%~6400%), 스페이스바 = 일시적 핸드 툴.
 - 렌더링: `draw(_:)`에서 CoreGraphics로 씬그래프 순회. dirty rect와 노드
   바운드로 컬링. 선택 핸들·마퀴·펜 미리보기는 오버레이로 마지막에 그림.
-- 성능 최적화(레이어 캐싱 등)는 실측으로 느려질 때만 도입.
+- **GPU/Metal 비채택 (의도적 결정, 2026-06-11)**: 캔버스는 CoreGraphics(CPU)로
+  그린다. ① 캔버스와 PDF 출력이 SceneRenderer 하나를 공유해 화면=파일 일치가
+  구조적으로 보장되고, ② MVP 규모(수백~수천 패스)는 Apple Silicon에서 CG로
+  충분하며, ③ Metal 벡터 래스터화(stencil-and-cover/테셀레이션)는 에디터
+  본체보다 큰 복잡도이기 때문. 줌 제스처 중에는 NSScrollView가 캐시된 비트맵을
+  스케일링하므로 매 프레임 재렌더가 아니다.
+- 성능이 실측으로 부족해지면 단계적 에스컬레이션: dirty-rect 컬링(기본 포함)
+  → CGLayer/타일 캐싱 → 최후에 캔버스 전용 Metal 렌더러를 SceneRenderer 계약
+  뒤에 추가(파일 출력은 계속 CG 유지).
 
 ### 도구 — 상태 머신
 
