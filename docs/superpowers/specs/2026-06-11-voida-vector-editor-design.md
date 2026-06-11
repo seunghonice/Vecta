@@ -155,15 +155,23 @@ enum PathSegment  { case move(to:), line(to:), curve(to:control1:control2:) }
    - 그라디언트: 패스를 클립 → `CGShading`(axial/radial) 드로우
    - 텍스트: CoreText(`CTLine`)로 그려 **PDF에 실제 텍스트로 보존**
    - 이미지: `CGImage` 임베드
-3. **네이티브 라운드트립**: 생성된 PDF 데이터를 PDFKit `PDFDocument`로 다시
-   열어 Info 사전 커스텀 키(`VoidaSceneJSON`)에 씬그래프 JSON(Codable)을 넣고
-   최종 저장.
-   - 열기 시 이 키가 있으면 JSON을 그대로 디코드 (100% 보존).
+3. **네이티브 라운드트립** (2026-06-11 스파이크로 검증 완료): 생성된 PDF
+   바이트의 마지막 `startxref` 직전에 씬그래프 JSON(Codable)을 base64로 감싼
+   PDF 주석 블록으로 삽입한다.
+
+   ```
+   %VoidaSceneJSON-BEGIN
+   %<base64(JSON)>
+   %VoidaSceneJSON-END
+   ```
+
+   - 주석 블록은 xref 오프셋에 영향을 주지 않아 파일이 유효한 PDF로 유지됨
+     (CGPDFDocument·PDFKit 모두 정상 인식, 1MB 페이로드 검증 완료).
+   - 열기 시 마커를 스캔해 JSON이 있으면 그대로 디코드 (100% 보존).
    - 없으면(외부 파일) 5절의 콘텐츠 스트림 파싱으로 폴백.
-   - **리스크**: PDFKit이 커스텀 Info 키를 저장 시 보존하지 않을 가능성.
-     마일스톤 1에서 가장 먼저 스파이크로 검증한다. 실패 시 폴백:
-     자체 파일도 콘텐츠 스트림 파싱으로 읽기 (그룹 구조·레이어 이름 손실은
-     Info 키에 들어가는 소형 메타데이터 JSON으로 보완 — 키당 수 KB 수준).
+   - 기각된 대안: PDFKit Info 커스텀 키(문자열 키로 잘못 직렬화돼 재독 불가),
+     CGContext auxiliaryInfo(미지원 키 무시), Keywords 키(~5배 부풀림 +
+     메타데이터 오염), 숨김 주석(~10배 부풀림).
 4. 문서 타입: `.ai`(`com.adobe.illustrator`) 읽기/쓰기, `.pdf` 읽기.
 
 ## 7. 캔버스와 도구 (VoidaApp)
@@ -265,7 +273,7 @@ TDD (Red → Green → Refactor). 로직 대부분을 VoidaEngine에 두어 헤�
 각 마일스톤은 동작하는 상태로 끝난다.
 
 1. **최소 루프**: 엔진 모델 + 도형 그리기(사각형/타원) + .ai 저장 + 자체 파일
-   열기. *PDFKit Info 키 보존 스파이크 포함.*
+   열기. *(JSON 임베드 방식 스파이크는 완료 — 6절)*
 2. **편집**: 선택/이동/리사이즈/회전, 직접 선택, 펜 도구
 3. **스타일·구조**: 색/선/그라디언트 인스펙터, 레이어 패널, undo 전면 적용
 4. **외부 .ai 임포트**: 패스/스타일 → 클립·폼 → 그라디언트 → 이미지 → 텍스트
@@ -277,7 +285,7 @@ TDD (Red → Green → Refactor). 로직 대부분을 VoidaEngine에 두어 헤�
 
 | 리스크 | 대응 |
 |---|---|
-| PDFKit 커스텀 Info 키 미보존 | 마일스톤 1 스파이크로 즉시 검증, 6절의 폴백 |
+| ~~PDFKit 커스텀 Info 키 미보존~~ | 해소됨 — 스파이크 결과 startxref 직전 주석 블록 방식으로 확정 (6절) |
 | 실제 .ai 파일의 PDF 다양성 (생성기마다 연산자 패턴 상이) | 샘플 .ai 코퍼스 확보 후 케이스 추가, ImportReport로 가시화 |
 | 텍스트 인코딩 복잡도 (CID/복합 폰트) | MVP는 심플 폰트 우선, 실패는 리포트로 표면화 |
 | CGPath 불리언 결과 품질 (자기교차 등 엣지) | `normalized()` 전처리, 테스트 케이스 확보 |
