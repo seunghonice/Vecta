@@ -104,3 +104,35 @@ private func twoRectDocument() -> (VectorDocument, bottom: NodeID, top: NodeID) 
   document.removeTopLevelNodes(ids: [top])
   #expect(document.topLevelNodeIDs == [bottom])
 }
+
+@Test func singularTransformNodeIsNeverHit() {
+  // scaleX 0 → 특이 행렬: 조용한 오판정 대신 미스
+  let node = PathNode(
+    path: .rectangle(CGRect(x: 0, y: 0, width: 100, height: 100)),
+    style: Style(fill: .color(.black)),
+    transform: Transform2D(CGAffineTransform(scaleX: 0, y: 1)))
+  var document = VectorDocument.empty(size: CGSize(width: 300, height: 300))
+  document.layers[0].nodes = [.path(node)]
+  #expect(
+    HitTesting.topmostNodeID(at: CGPoint(x: 0, y: 50), in: document, tolerance: 4) == nil)
+}
+
+@Test func scaledGroupCompensatesTolerance() {
+  // 2배 스케일 그룹: 부모 공간 tolerance 4 → 로컬 2.
+  // 자식 rect (0..10), stroke width 1 → 히트 반경 = 0.5 + 2 = 2.5 (로컬).
+  // 부모 점 (26,5) → 로컬 (13,2.5): 가장자리(x=10)에서 3 > 2.5 → 미스
+  let child = PathNode(
+    path: .rectangle(CGRect(x: 0, y: 0, width: 10, height: 10)),
+    style: Style(stroke: Stroke(paint: .black, width: 1)))
+  let group = GroupNode(
+    children: [.path(child)],
+    transform: Transform2D(CGAffineTransform(scaleX: 2, y: 2)))
+  var document = VectorDocument.empty(size: CGSize(width: 300, height: 300))
+  document.layers[0].nodes = [.group(group)]
+  #expect(
+    HitTesting.topmostNodeID(at: CGPoint(x: 26, y: 5), in: document, tolerance: 4) == nil)
+  // 가장자리 안쪽 근처(부모 (19,5) → 로컬 (9.5,2.5)): 가장자리에서 0.5 < 2.5 → hit
+  #expect(
+    HitTesting.topmostNodeID(at: CGPoint(x: 19, y: 5), in: document, tolerance: 4)
+      == group.id)
+}
