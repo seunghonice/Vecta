@@ -41,7 +41,7 @@ enum MainMenuBuilder {
       withTitle: "닫기",
       action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
     menu.addItem(
-      withTitle: "저장…",
+      withTitle: "저장",
       action: #selector(NSDocument.save(_:)), keyEquivalent: "s")
     let saveAs = menu.addItem(
       withTitle: "다른 이름으로 저장…",
@@ -52,6 +52,8 @@ enum MainMenuBuilder {
 
   private static func editMenu() -> NSMenu {
     let menu = NSMenu(title: "편집")
+    // undo:/redo:는 Swift에서 #selector로 접근 불가(UndoManager가 @objc 미노출)
+    // → 문자열 셀렉터 사용. 응답 체인이 NSDocument의 undoManager로 라우팅한다.
     menu.addItem(
       withTitle: "실행 취소", action: Selector(("undo:")), keyEquivalent: "z")
     let redo = menu.addItem(

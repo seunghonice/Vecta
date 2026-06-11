@@ -26,9 +26,11 @@ final class VoidaDocument: NSDocument {
   }
 
   override func read(from data: Data, ofType typeName: String) throws {
-    // read(from:ofType:)도 메인 스레드 보장 — assumeIsolated 사용.
+    // read(from:ofType:)는 SDK상 nonisolated이지만 canConcurrentlyReadDocuments
+    // (기본 false)를 재정의하지 않는 한 메인 스레드에서 호출된다.
+    // 이 클래스에서 canConcurrentlyReadDocuments를 절대 재정의하지 말 것.
     let vectorDocument = try AIFileReader.document(from: data)
-    MainActor.assumeIsolated {
+    try MainActor.assumeIsolated {
       store.load(vectorDocument)
     }
   }
