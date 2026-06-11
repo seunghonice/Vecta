@@ -58,3 +58,27 @@ private let fakePDF = Data(
     try NativeScenePayload.embed(VectorDocument.empty(), into: Data("no pdf".utf8))
   }
 }
+
+@Test func truncatedPayloadThrowsCorruptNativeData() throws {
+  let document = VectorDocument.empty()
+  let embedded = try NativeScenePayload.embed(document, into: fakePDF)
+  // END 마커를 잘라낸 손상 파일
+  let endMarkerData = Data("\n%VoidaSceneJSON-END".utf8)
+  let endRange = embedded.range(of: endMarkerData)!
+  let truncated = embedded[embedded.startIndex..<endRange.lowerBound]
+  #expect(throws: ImportError.corruptNativeData) {
+    try NativeScenePayload.extract(from: Data(truncated))
+  }
+}
+
+@Test func embedReplacesExistingBlock() throws {
+  let first = VectorDocument.empty(size: CGSize(width: 100, height: 100))
+  let second = VectorDocument.empty(size: CGSize(width: 300, height: 300))
+  let once = try NativeScenePayload.embed(first, into: fakePDF)
+  let twice = try NativeScenePayload.embed(second, into: once)
+  #expect(try NativeScenePayload.extract(from: twice) == second)
+  // 블록이 하나만 남아야 한다
+  let text = String(decoding: twice, as: UTF8.self)
+  let beginCount = text.components(separatedBy: "%VoidaSceneJSON-BEGIN").count - 1
+  #expect(beginCount == 1)
+}
