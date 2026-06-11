@@ -9,15 +9,16 @@ final class CanvasView: NSView {
 
   private let store: DocumentStore
   private let toolState: ToolState
-  private let tools: [ToolKind: CanvasTool] = [
-    .select: SelectTool(),
-    .rectangle: ShapeTool(shape: .rectangle),
-    .ellipse: ShapeTool(shape: .ellipse),
-  ]
+  // ToolKind.allCases × makeTool()로 전 케이스가 보장된다 (팩토리가 망라 switch).
+  // 도구 인스턴스는 제스처 상태를 보유하므로 여기서 1회 생성 후 캐시한다.
+  private let tools: [ToolKind: CanvasTool] = Dictionary(
+    uniqueKeysWithValues: ToolKind.allCases.map { ($0, $0.makeTool()) })
   private lazy var toolContext = ToolContext(store: store) { [weak self] in
     self?.needsDisplay = true
   }
   private var subscriptions: Set<AnyCancellable> = []
+  private var canvasTrackingArea: NSTrackingArea?
+  private var currentToolKind: ToolKind
 
   override var isFlipped: Bool { true }
   override var acceptsFirstResponder: Bool { true }
@@ -31,6 +32,7 @@ final class CanvasView: NSView {
   init(store: DocumentStore, toolState: ToolState) {
     self.store = store
     self.toolState = toolState
+    self.currentToolKind = toolState.activeTool
     super.init(frame: NSRect(origin: .zero, size: store.document.artboard.size))
     // objectWillChange는 변경 직전 발행되지만 DispatchQueue 스케줄러는 항상
     // async 디스패치하므로 sink는 변경 완료 후 실행된다.
@@ -55,15 +57,35 @@ final class CanvasView: NSView {
   }
 
   private func activeToolDidChange() {
-    // 드래그 중 도구 전환(V/M/L) 시 이전 도구의 미완 제스처를 정리한다
-    // (세션 없으면 no-op).
+    let newKind = toolState.activeTool
+    guard newKind != currentToolKind else { return }
+    // 이전 도구의 미완 작업 정리 (펜: 미완 패스 완결, 직접선택: 편집 해제,
+    // 선택: transient 취소).
+    tools[currentToolKind]?.deactivate(context: toolContext)
     store.cancelTransient()
+    currentToolKind = newKind
     window?.invalidateCursorRects(for: self)
     needsDisplay = true
   }
 
   override func resetCursorRects() {
     addCursorRect(bounds, cursor: activeTool.cursorKind.nsCursor)
+  }
+
+  override func updateTrackingAreas() {
+    super.updateTrackingAreas()
+    if let canvasTrackingArea {
+      removeTrackingArea(canvasTrackingArea)
+    }
+    let area = NSTrackingArea(
+      rect: .zero, options: [.mouseMoved, .activeInKeyWindow, .inVisibleRect],
+      owner: self, userInfo: nil)
+    addTrackingArea(area)
+    canvasTrackingArea = area
+  }
+
+  override func mouseMoved(with event: NSEvent) {
+    activeTool.mouseMoved(canvasEvent(from: event), context: toolContext)
   }
 
   override func draw(_ dirtyRect: NSRect) {
@@ -111,6 +133,8 @@ final class CanvasView: NSView {
     else { return false }
     switch characters {
     case "v": toolState.activeTool = .select
+    case "a": toolState.activeTool = .directSelect
+    case "p": toolState.activeTool = .pen
     case "m": toolState.activeTool = .rectangle
     case "l": toolState.activeTool = .ellipse
     default: return false

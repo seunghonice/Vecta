@@ -10,6 +10,8 @@ extension ToolKind {
   var koreanName: String {
     switch self {
     case .select: return "선택"
+    case .directSelect: return "직접 선택"
+    case .pen: return "펜"
     case .rectangle: return "사각형"
     case .ellipse: return "타원"
     }
@@ -18,6 +20,8 @@ extension ToolKind {
   var symbolName: String {
     switch self {
     case .select: return "cursorarrow"
+    case .directSelect: return "hand.point.up.left"
+    case .pen: return "pencil.tip"
     case .rectangle: return "rectangle"
     case .ellipse: return "circle"
     }
