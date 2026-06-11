@@ -18,6 +18,12 @@ public final class SelectTool: CanvasTool {
   public init() {}
 
   public func mouseDown(_ event: CanvasEvent, context: ToolContext) {
+    // 이전 제스처가 정리되지 않은 경우 방어 (이중 mouseDown, 시스템 인터럽트 등)
+    if case .idle = dragState {
+    } else {
+      context.store.cancelTransient()
+      dragState = .idle
+    }
     let store = context.store
     if let bounds = store.selectionBounds {
       let handleTolerance = event.hitTolerance * 1.5

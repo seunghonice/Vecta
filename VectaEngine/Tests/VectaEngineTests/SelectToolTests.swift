@@ -99,3 +99,35 @@ private func click(_ x: CGFloat, _ y: CGFloat, shift: Bool = false) -> CanvasEve
   #expect(tool.keyDown(.escape, context: context))
   #expect(context.store.document.topLevelNode(id: nodeA)?.bounds.origin == .zero)
 }
+
+@Test @MainActor func shiftMarqueeAddsToExistingSelection() {
+  let (context, tool, nodeA, nodeB) = makeContext()
+  context.store.select([nodeA])
+  tool.mouseDown(click(90, 90, shift: true), context: context)
+  tool.mouseDragged(click(160, 160, shift: true), context: context)
+  tool.mouseUp(click(160, 160, shift: true), context: context)
+  #expect(context.store.selection == [nodeA, nodeB])
+}
+
+@Test @MainActor func secondMouseDownDuringDragCancelsPreviousGesture() {
+  let (context, tool, nodeA, _) = makeContext()
+  tool.mouseDown(click(25, 25), context: context)
+  tool.mouseDragged(click(45, 25), context: context)
+  // 정리되지 않은 채 새 mouseDown (이중 버튼 등) → 이전 제스처 취소
+  tool.mouseDown(click(25, 25), context: context)
+  tool.mouseUp(click(25, 25), context: context)
+  #expect(context.store.document.topLevelNode(id: nodeA)?.bounds.origin == .zero)
+}
+
+@Test @MainActor func drawOverlaySmokeTestDoesNotCrash() {
+  let (context, tool, nodeA, _) = makeContext()
+  context.store.select([nodeA])
+  tool.mouseDown(click(300, 300), context: context)  // 마퀴 시작
+  tool.mouseDragged(click(320, 320), context: context)
+  let bitmap = CGContext(
+    data: nil, width: 400, height: 400, bitsPerComponent: 8, bytesPerRow: 0,
+    space: CGColorSpace(name: CGColorSpace.sRGB)!,
+    bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+  tool.drawOverlay(in: bitmap, scale: 2, context: context)
+  tool.mouseUp(click(320, 320), context: context)
+}
