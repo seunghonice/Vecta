@@ -152,7 +152,9 @@ enum PathSegment  { case move(to:), line(to:), curve(to:control1:control2:) }
 1. `CGContext`(PDF)로 1페이지 생성. mediaBox = 아트보드 크기.
 2. 씬그래프 순회하며 그리기:
    - 패스: CGPath 변환 후 fill/stroke
-   - 그라디언트: 패스를 클립 → `CGShading`(axial/radial) 드로우
+   - 그라디언트: 패스를 클립 → `CGGradient`(axial/radial) 드로우
+     (M3 결정: CGShading+CGFunction은 스톱 보간 수동 구현이 필요해
+     CGGradient 채택 — PDF에는 동일하게 shading으로 기록됨)
    - 텍스트: CoreText(`CTLine`)로 그려 **PDF에 실제 텍스트로 보존**
    - 이미지: `CGImage` 임베드
 3. **네이티브 라운드트립** (2026-06-11 스파이크로 검증 완료): 생성된 PDF
