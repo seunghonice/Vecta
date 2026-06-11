@@ -16,6 +16,8 @@ extension DocumentStore {
   }
 
   /// 선택 바운드 크기를 (width, height)로 — 좌상단 고정. 0 이하 입력은 무시.
+  /// 회전된 노드에 비균일 스케일을 적용하면 부모 좌표계 합성으로 전단(shear)이
+  /// 생긴다 — 드래그 리사이즈와 동일한 바운드 기준 W/H의 알려진 한계.
   public func resizeSelection(width: CGFloat? = nil, height: CGFloat? = nil) {
     guard let bounds = selectionBounds, bounds.width > 0, bounds.height > 0 else { return }
     if let width, width <= 0 { return }

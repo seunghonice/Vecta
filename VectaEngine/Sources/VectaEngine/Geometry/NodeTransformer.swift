@@ -61,6 +61,8 @@ extension Node {
   }
 
   /// transform의 회전 성분 (도). 모델 y-아래 좌표계 — 양수 = 화면 시계 방향.
+  /// 음수 스케일(미러)은 atan2가 회전으로 읽는다 (예: x플립 = 180°) —
+  /// 플립·회전 분해는 비목표, 인스펙터 표시용 근사값.
   public var rotationDegrees: Double {
     atan2(transform.b, transform.a) * 180 / .pi
   }

@@ -90,3 +90,50 @@ private func expectClose(
   expectClose(store.selectionBounds!.minX, 10)
   #expect(!undoManager.canUndo)
 }
+
+@Test @MainActor func resizeMultiSelectionScalesPositionsProportionally() {
+  // 공통 좌상단 기준 스케일 — 노드 간 간격도 함께 늘어난다 (상대 배치 보존)
+  let first = rect(at: CGPoint(x: 10, y: 10))  // (10,10,100,50)
+  let second = rect(at: CGPoint(x: 130, y: 10))  // (130,10,100,50) → union (10,10,220,50)
+  let store = makeStore(nodes: [.path(first), .path(second)])
+  store.select([first.id, second.id])
+  store.resizeSelection(width: 440)  // scaleX = 2
+  let bounds = store.selectionBounds!
+  expectClose(bounds.width, 440)
+  expectClose(bounds.minX, 10)
+  guard case .path(let scaledSecond)? = store.document.topLevelNode(id: second.id) else {
+    Issue.record("패스가 아님")
+    return
+  }
+  // second 원점: 10 + (130-10)*2 = 250
+  expectClose(Node.path(scaledSecond).bounds.minX, 250)
+}
+
+@Test @MainActor func resizeRotatedNodeShearsByDesign() {
+  // 회전된 노드의 비균일 스케일은 전단을 만든다 — 알려진 한계의 특성 고정 테스트.
+  // AABB 폭이 목표값과 일치하는지가 아니라, 연산이 적용되어 바운드가 변했는지만 고정한다.
+  let node = rect()  // (10,10,100,50)
+  let store = makeStore(nodes: [.path(node)])
+  store.select([node.id])
+  store.rotateSelection(byDegrees: 30)
+  let rotatedBounds = store.selectionBounds!
+  store.resizeSelection(width: rotatedBounds.width * 2)
+  let resized = store.selectionBounds!
+  expectClose(resized.width, rotatedBounds.width * 2)
+  expectClose(resized.minX, rotatedBounds.minX)  // 좌상단 고정 유지
+}
+
+@Test @MainActor func rotateSelectionAccumulatesDeltas() {
+  let node = rect()
+  let store = makeStore(nodes: [.path(node)])
+  store.select([node.id])
+  store.rotateSelection(byDegrees: 30)
+  store.rotateSelection(byDegrees: 60)
+  guard let id = store.selection.first,
+    let rotated = store.document.topLevelNode(id: id)
+  else {
+    Issue.record("노드 없음")
+    return
+  }
+  #expect(abs(rotated.rotationDegrees - 90) < 0.0001)
+}
