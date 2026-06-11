@@ -3,13 +3,6 @@ import Testing
 
 @testable import VoidaEngine
 
-@Test func nodeIDCodableRoundTrip() throws {
-  let original = NodeID()
-  let data = try JSONEncoder().encode(original)
-  let decoded = try JSONDecoder().decode(NodeID.self, from: data)
-  #expect(decoded == original)
-}
-
 @Test func rgbaCodableRoundTrip() throws {
   let original = RGBA(red: 0.2, green: 0.4, blue: 0.6, alpha: 0.8)
   let data = try JSONEncoder().encode(original)

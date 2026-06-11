@@ -41,3 +41,8 @@ private func sampleDocument() -> VectorDocument {
   #expect(document.layers[0].nodes.isEmpty)
   #expect(document.artboard.size == CGSize(width: 100, height: 100))
 }
+
+@Test func emptyDocumentDefaultSizeIsA4() {
+  let document = VectorDocument.empty()
+  #expect(document.artboard.size == CGSize(width: 595, height: 842))
+}
