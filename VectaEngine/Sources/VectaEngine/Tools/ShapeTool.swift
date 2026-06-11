@@ -58,10 +58,9 @@ public final class ShapeTool: CanvasTool {
     // 사용한다 — mouseUp 시점의 modifier가 아니라 마지막 드래그 기준.
     let rect = Self.dragRect(from: start, to: event.point, constrainSquare: shiftPressed)
     guard rect.width >= 1, rect.height >= 1 else { return }
-    let path = makePath(in: rect)
-    context.store.apply(actionName: "도형 추가") { document in
-      document.layers[0].nodes.append(.path(PathNode(path: path, style: .defaultShape)))
-    }
+    context.store.appendNodeToActiveLayer(
+      .path(PathNode(path: makePath(in: rect), style: .defaultShape)),
+      actionName: "도형 추가")
   }
 
   public func drawOverlay(in cgContext: CGContext, scale: CGFloat, context: ToolContext) {

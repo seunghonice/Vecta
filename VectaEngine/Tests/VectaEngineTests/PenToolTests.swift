@@ -101,3 +101,35 @@ private func at(_ x: CGFloat, _ y: CGFloat) -> CanvasEvent {
   tool.deactivate(context: context)
   #expect(store.document.layers[0].nodes.count == 1)  // 앵커 1개는 버려짐
 }
+
+@Test @MainActor func duplicateMouseDownWithoutUpAddsSingleAnchor() {
+  let (context, tool, store) = makeContext()
+  tool.mouseDown(at(10, 10), context: context)
+  tool.mouseDown(at(10, 10), context: context)  // 이중 이벤트 (mouseUp 누락)
+  tool.mouseUp(at(10, 10), context: context)
+  tool.mouseDown(at(100, 10), context: context)
+  tool.mouseUp(at(100, 10), context: context)
+  #expect(tool.keyDown(.enter, context: context))
+  guard case .path(let pathNode) = store.document.layers[0].nodes[0] else {
+    Issue.record("패스가 아님")
+    return
+  }
+  // 가드 없으면 (10,10) 앵커가 2개 → 세그먼트 3개
+  #expect(pathNode.path.subpaths[0].segments.count == 2)
+}
+
+@Test @MainActor func penCommitsToActiveLayer() {
+  var document = VectorDocument.empty(size: CGSize(width: 300, height: 300))
+  document.layers.append(Layer(name: "레이어 2"))
+  let store = DocumentStore(document: document)
+  store.setActiveLayer(id: store.document.layers[1].id)
+  let context = ToolContext(store: store)
+  let tool = PenTool()
+  for point in [CGPoint(x: 10, y: 10), CGPoint(x: 100, y: 10)] {
+    tool.mouseDown(CanvasEvent(point: point, hitTolerance: 4), context: context)
+    tool.mouseUp(CanvasEvent(point: point, hitTolerance: 4), context: context)
+  }
+  #expect(tool.keyDown(.enter, context: context))
+  #expect(store.document.layers[0].nodes.isEmpty)
+  #expect(store.document.layers[1].nodes.count == 1)
+}

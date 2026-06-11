@@ -74,3 +74,17 @@ private func drag(_ x: CGFloat, _ y: CGFloat, shift: Bool = false) -> CanvasEven
   undoManager.undo()
   #expect(store.document.layers[0].nodes.isEmpty)
 }
+
+@Test @MainActor func shapeToolCommitsToActiveLayer() {
+  var document = VectorDocument.empty(size: CGSize(width: 300, height: 300))
+  document.layers.append(Layer(name: "레이어 2"))
+  let store = DocumentStore(document: document)
+  store.setActiveLayer(id: store.document.layers[1].id)
+  let context = ToolContext(store: store)
+  let tool = ShapeTool(shape: .rectangle)
+  tool.mouseDown(CanvasEvent(point: CGPoint(x: 10, y: 10)), context: context)
+  tool.mouseDragged(CanvasEvent(point: CGPoint(x: 60, y: 60)), context: context)
+  tool.mouseUp(CanvasEvent(point: CGPoint(x: 60, y: 60)), context: context)
+  #expect(store.document.layers[0].nodes.isEmpty)
+  #expect(store.document.layers[1].nodes.count == 1)
+}
