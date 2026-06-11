@@ -41,12 +41,22 @@ public enum SceneRenderer {
   static func render(_ pathNode: PathNode, in context: CGContext) {
     context.saveGState()
     context.concatenate(pathNode.transform.cgAffineTransform)
-    context.setAlpha(CGFloat(pathNode.style.opacity))
+    // opacity < 1이면 fill+stroke를 한 덩어리로 합성한 뒤 노드 전체에
+    // 불투명도를 적용한다 (Illustrator 의미론). setAlpha는 transparency
+    // layer 합성 시점에 곱해진다.
+    let needsGroupCompositing = pathNode.style.opacity < 1
+    if needsGroupCompositing {
+      context.setAlpha(CGFloat(pathNode.style.opacity))
+      context.beginTransparencyLayer(auxiliaryInfo: nil)
+    }
     if let fill = pathNode.style.fill {
       renderFill(fill, path: pathNode.path, in: context)
     }
     if let stroke = pathNode.style.stroke {
       renderStroke(stroke, path: pathNode.path, in: context)
+    }
+    if needsGroupCompositing {
+      context.endTransparencyLayer()
     }
     context.restoreGState()
   }
@@ -55,6 +65,7 @@ public enum SceneRenderer {
     switch paint {
     case .color(let color):
       context.setFillColor(color.cgColor)
+      // fillPath()/strokePath()는 current path를 소비하므로 각 함수가 독립적으로 path를 추가해야 한다.
       context.addPath(path.cgPath)
       context.fillPath()
     case .linearGradient, .radialGradient:

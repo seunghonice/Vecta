@@ -55,6 +55,19 @@ private func documentWithRedRect() -> VectorDocument {
     style: Style(stroke: Stroke(paint: .black, width: 4)))
   document.layers[0].nodes = [.path(outlined)]
   let context = renderToBitmap(document, size: CGSize(width: 200, height: 200))
-  #expect(pixelColor(x: 100, y: 50, in: context).alpha == 255)  // 윗변 위
+  #expect(pixelColor(x: 100, y: 50, in: context).alpha == 255)  // 윗변 중앙 (4pt stroke center)
   #expect(pixelColor(x: 100, y: 100, in: context).alpha == 0)  // 중앙은 비어 있음
+}
+
+@Test func nodeOpacityAppliesToWholeNode() {
+  var document = VectorDocument.empty(size: CGSize(width: 200, height: 200))
+  let translucent = PathNode(
+    path: .rectangle(CGRect(x: 20, y: 20, width: 100, height: 100)),
+    style: Style(fill: .color(RGBA(red: 1, green: 0, blue: 0)), opacity: 0.5))
+  document.layers[0].nodes = [.path(translucent)]
+  let context = renderToBitmap(document, size: CGSize(width: 200, height: 200))
+  let inside = pixelColor(x: 70, y: 70, in: context)
+  // premultipliedLast: alpha ≈ 0.5 → 약 127±8
+  #expect(inside.alpha > 119)
+  #expect(inside.alpha < 136)
 }
