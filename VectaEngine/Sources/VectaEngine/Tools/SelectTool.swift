@@ -122,17 +122,104 @@ public final class SelectTool: CanvasTool {
     }
   }
 
-  // resize/rotate/drawOverlay는 Task 7에서 구현 — 이 Task에서는 컴파일을 위한
-  // 최소 본체만 둔다.
+  private static let minimumScaleDenominator: CGFloat = 0.001
+  private static let minimumScale: CGFloat = 0.01
+
   func resize(
     to event: CanvasEvent, handle: SelectionHandle, baseBounds: CGRect, context: ToolContext
-  ) {}
+  ) {
+    let anchor = handle.anchor(in: baseBounds)
+    let handleStart = handle.position(in: baseBounds)
+    var scaleX: CGFloat = 1
+    var scaleY: CGFloat = 1
+    if handle.scalesX {
+      scaleX = safeRatio(event.point.x - anchor.x, handleStart.x - anchor.x)
+    }
+    if handle.scalesY {
+      scaleY = safeRatio(event.point.y - anchor.y, handleStart.y - anchor.y)
+    }
+    if event.isShiftPressed && handle.scalesX && handle.scalesY {
+      let uniform = max(abs(scaleX), abs(scaleY))
+      scaleX = scaleX < 0 ? -uniform : uniform
+      scaleY = scaleY < 0 ? -uniform : uniform
+    }
+    let ids = context.store.selection
+    context.store.updateTransient { document in
+      document.updateTopLevelNodes(ids: ids) {
+        NodeTransformer.resized($0, anchor: anchor, scaleX: scaleX, scaleY: scaleY)
+      }
+    }
+  }
 
   func rotate(
     to event: CanvasEvent, center: CGPoint, startAngle: CGFloat, context: ToolContext
-  ) {}
+  ) {
+    let delta = angle(from: center, to: event.point) - startAngle
+    let ids = context.store.selection
+    context.store.updateTransient { document in
+      document.updateTopLevelNodes(ids: ids) {
+        NodeTransformer.rotated($0, around: center, by: delta)
+      }
+    }
+  }
+
+  /// 분모가 0에 가까우면 1, 결과가 0에 가까우면 최소 스케일로 클램프
+  /// (특이 행렬 방지 — 0 스케일은 역변환 불가).
+  private func safeRatio(_ numerator: CGFloat, _ denominator: CGFloat) -> CGFloat {
+    guard abs(denominator) > Self.minimumScaleDenominator else { return 1 }
+    let ratio = numerator / denominator
+    if abs(ratio) < Self.minimumScale {
+      return ratio < 0 ? -Self.minimumScale : Self.minimumScale
+    }
+    return ratio
+  }
 
   func angle(from center: CGPoint, to point: CGPoint) -> CGFloat {
     atan2(point.y - center.y, point.x - center.x)
+  }
+
+  // MARK: - 오버레이
+
+  private static let handleScreenSize: CGFloat = 8
+  private static let selectionLineScreenWidth: CGFloat = 1
+
+  public func drawOverlay(in cgContext: CGContext, scale: CGFloat, context: ToolContext) {
+    if let bounds = context.store.selectionBounds {
+      drawSelectionChrome(bounds: bounds, in: cgContext, scale: scale)
+    }
+    if case .marquee(let start, let current) = dragState {
+      drawMarquee(
+        rect: CGRect(corner: start, oppositeCorner: current), in: cgContext, scale: scale)
+    }
+  }
+
+  private func drawSelectionChrome(bounds: CGRect, in cgContext: CGContext, scale: CGFloat) {
+    let accent = CGColor(srgbRed: 0.0, green: 0.47, blue: 1.0, alpha: 1)
+    cgContext.saveGState()
+    cgContext.setStrokeColor(accent)
+    cgContext.setLineWidth(Self.selectionLineScreenWidth / scale)
+    cgContext.stroke(bounds)
+    let side = Self.handleScreenSize / scale
+    cgContext.setFillColor(CGColor.white)
+    for handle in SelectionHandle.allCases {
+      let position = handle.position(in: bounds)
+      let rect = CGRect(
+        x: position.x - side / 2, y: position.y - side / 2, width: side, height: side)
+      cgContext.fill(rect)
+      cgContext.stroke(rect)
+    }
+    cgContext.restoreGState()
+  }
+
+  private func drawMarquee(rect: CGRect, in cgContext: CGContext, scale: CGFloat) {
+    let accent = CGColor(srgbRed: 0.0, green: 0.47, blue: 1.0, alpha: 1)
+    cgContext.saveGState()
+    cgContext.setStrokeColor(accent)
+    cgContext.setFillColor(CGColor(srgbRed: 0.0, green: 0.47, blue: 1.0, alpha: 0.1))
+    cgContext.setLineWidth(Self.selectionLineScreenWidth / scale)
+    cgContext.setLineDash(phase: 0, lengths: [4 / scale, 4 / scale])
+    cgContext.fill(rect)
+    cgContext.stroke(rect)
+    cgContext.restoreGState()
   }
 }
