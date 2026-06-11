@@ -107,3 +107,52 @@ private func at(_ x: CGFloat, _ y: CGFloat) -> CanvasEvent {
   #expect(tool.editNodeID == nil)
   #expect(tool.selectedAnchor == nil)
 }
+
+@Test @MainActor func draggingControlHandleChangesCurvatureWithSingleUndo() {
+  let undoManager = UndoManager()
+  // 타원 (10,10,100×100): south 앵커(60,110)의 들어오는 핸들 = segments[1].control2
+  let node = PathNode(
+    path: .ellipse(in: CGRect(x: 10, y: 10, width: 100, height: 100)),
+    style: Style(fill: .color(.black)))
+  var document = VectorDocument.empty(size: CGSize(width: 300, height: 300))
+  document.layers[0].nodes = [.path(node)]
+  let store = DocumentStore(document: document) { undoManager }
+  let context = ToolContext(store: store)
+  let tool = DirectSelectTool()
+  tool.mouseDown(at(60, 60), context: context)  // 본체 → 편집 대상
+  tool.mouseUp(at(60, 60), context: context)
+  tool.mouseDown(at(60, 110), context: context)  // south 앵커 선택
+  tool.mouseUp(at(60, 110), context: context)
+  #expect(tool.selectedAnchor == AnchorRef(subpathIndex: 0, segmentIndex: 1))
+  // 들어오는 핸들 위치 ≈ (60 + 50×kappa, 110) = (87.614, 110)
+  tool.mouseDown(at(87.6, 110), context: context)
+  tool.mouseDragged(at(90, 130), context: context)
+  tool.mouseUp(at(90, 130), context: context)
+  guard case .path(let edited)? = store.document.topLevelNode(id: node.id),
+    case .curve(_, _, let control2) = edited.path.subpaths[0].segments[1]
+  else {
+    Issue.record("곡선이 아님")
+    return
+  }
+  #expect(control2 == CGPoint(x: 90, y: 130))
+  undoManager.undo()
+  guard case .path(let restored)? = store.document.topLevelNode(id: node.id),
+    case .curve(_, _, let restoredControl2) = restored.path.subpaths[0].segments[1]
+  else { return }
+  #expect(abs(restoredControl2.x - 87.614) < 0.01)
+  #expect(restoredControl2.y == 110)
+  #expect(!undoManager.canUndo)
+}
+
+@Test @MainActor func drawOverlaySmokeDoesNotCrash() {
+  let (context, tool, _) = makeContext()
+  tool.mouseDown(at(50, 30), context: context)  // 편집 대상
+  tool.mouseUp(at(50, 30), context: context)
+  tool.mouseDown(at(110, 60), context: context)  // 앵커 선택 (핸들 경로 포함)
+  tool.mouseUp(at(110, 60), context: context)
+  let bitmap = CGContext(
+    data: nil, width: 400, height: 400, bitsPerComponent: 8, bytesPerRow: 0,
+    space: CGColorSpace(name: CGColorSpace.sRGB)!,
+    bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+  tool.drawOverlay(in: bitmap, scale: 2, context: context)
+}

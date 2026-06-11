@@ -27,6 +27,7 @@ public final class DirectSelectTool: CanvasTool {
     let store = context.store
     let handleTolerance = event.hitTolerance * 1.5
     if let nodeID = editNodeID, let pathNode = topLevelPathNode(nodeID, in: store.document) {
+      // 앵커가 핸들보다 우선 — 핸들이 앵커와 겹치면 앵커가 잡힌다 (Illustrator/Figma 동일).
       if let hitAnchor = hitAnchor(in: pathNode, at: event.point, tolerance: handleTolerance) {
         selectedAnchor = hitAnchor
         store.beginTransient()
@@ -75,7 +76,9 @@ public final class DirectSelectTool: CanvasTool {
   }
 
   public func mouseUp(_ event: CanvasEvent, context: ToolContext) {
-    switch dragState {
+    let finished = dragState
+    dragState = .idle
+    switch finished {
     case .anchor:
       context.store.commitTransient(actionName: "앵커 이동")
     case .control:
@@ -83,7 +86,6 @@ public final class DirectSelectTool: CanvasTool {
     case .idle:
       break
     }
-    dragState = .idle
   }
 
   public func keyDown(_ key: CanvasKey, context: ToolContext) -> Bool {
