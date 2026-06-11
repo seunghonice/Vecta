@@ -63,6 +63,8 @@ public final class DocumentStore: ObservableObject {
   }
 
   /// 선택된 최상위 노드 바운드의 합집합 (선택 없으면 nil).
+  /// `selection`과 `document` 양쪽에 의존하는 계산 프로퍼티 — 변화 감지는
+  /// 두 @Published를 구독한다.
   public var selectionBounds: CGRect? {
     let rects = selection.compactMap { document.topLevelNode(id: $0)?.bounds }
     guard let first = rects.first else { return nil }
@@ -99,6 +101,8 @@ public final class DocumentStore: ObservableObject {
     transientBase = nil
     guard document != base else { return }
     registerUndo(restoring: base, actionName: actionName)
+    // transient 변경이 노드 추가/삭제를 포함해도 안전하도록 정리.
+    selection = selection.intersection(document.topLevelNodeIDs)
   }
 
   /// 제스처 취소 — 베이스로 복원.
