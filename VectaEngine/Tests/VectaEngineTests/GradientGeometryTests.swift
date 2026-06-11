@@ -56,3 +56,11 @@ private func expectClose(
   expectClose(gradient.start, CGPoint(x: 50, y: 25))
   expectClose(gradient.end, CGPoint(x: 100, y: 50))
 }
+
+@Test func diagonalAngleProjectsBeyondNonSquareBounds() {
+  // 비정방형 bounds의 대각 각도는 끝점이 경계를 약간 벗어난다 (의도된 사영 동작)
+  let bounds = CGRect(x: 0, y: 0, width: 100, height: 50)
+  let line = GradientGeometry.line(angleDegrees: 45, in: bounds)
+  expectClose(line.start, CGPoint(x: 12.5, y: -12.5))
+  expectClose(line.end, CGPoint(x: 87.5, y: 62.5))
+}

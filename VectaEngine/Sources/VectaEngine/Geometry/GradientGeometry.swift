@@ -3,7 +3,10 @@ import CoreGraphics
 /// 그라디언트 선분 ↔ 각도 매핑 (인스펙터 각도 편집용). 각도는 도 단위,
 /// 모델 y-아래 좌표계 기준 0° = 오른쪽(→), 90° = 아래(↓), 시계 방향 양수.
 public enum GradientGeometry {
-  /// bounds 중심을 지나고 양 끝이 bounds 경계에 내접하는 angle 방향 선분.
+  /// bounds 중심을 지나는 angle 방향 선분. 길이는 bounds를 방향 벡터에
+  /// 사영한 값 — 축 정렬 각도에서는 양 끝이 경계에 정확히 닿고, 비정방형
+  /// bounds의 대각 각도에서는 경계를 약간 벗어난다 (렌더러가 양 끝 색을
+  /// 연장하므로 무해 — 의도된 동작).
   public static func line(
     angleDegrees: Double, in bounds: CGRect
   ) -> (start: CGPoint, end: CGPoint) {
@@ -23,7 +26,8 @@ public enum GradientGeometry {
     )
   }
 
-  /// 그라디언트 선분의 각도 (도). 길이 0이면 0.
+  /// 그라디언트 선분의 각도 (도). 길이 0이면 0. 반환 범위는 atan2를 따라
+  /// −180…180 — 범위 밖 각도로 만든 선분은 동일 방향의 정규화 값으로 돌아온다.
   public static func angleDegrees(of gradient: Gradient) -> Double {
     let dx = gradient.end.x - gradient.start.x
     let dy = gradient.end.y - gradient.start.y
