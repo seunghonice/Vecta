@@ -54,7 +54,7 @@ public enum NativeScenePayload {
       throw ImportError.corruptNativeData  // BEGIN만 있고 END 없음 = 손상
     }
     let base64 = data[beginRange.upperBound..<endRange.lowerBound]
-    guard let json = Data(base64Encoded: Data(base64)) else {
+    guard let json = Data(base64Encoded: base64) else {
       throw ImportError.corruptNativeData
     }
     do {

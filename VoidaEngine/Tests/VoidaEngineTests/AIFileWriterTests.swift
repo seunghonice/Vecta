@@ -41,7 +41,7 @@ private func documentWithRedRect() -> VectorDocument {
     space: CGColorSpace(name: CGColorSpace.sRGB)!,
     bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
   context.drawPDFPage(page)
-  // 모델 top-left (70,70)은 PDF(bottom-left) 렌더 후에도 비트맵 row 70
+  // 사각형(20,20,100×100) 내부 픽셀 (70,70) — 플립 좌표 검증
   let inside = pixelColor(x: 70, y: 70, in: context)
   #expect(inside.red == 255)
   let outside = pixelColor(x: 70, y: 180, in: context)
