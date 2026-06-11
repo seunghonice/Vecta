@@ -12,6 +12,11 @@ public struct Subpath: Equatable, Codable, Sendable {
   public var isClosed: Bool
 
   public init(segments: [PathSegment], isClosed: Bool) {
+    if let first = segments.first {
+      guard case .move = first else {
+        preconditionFailure("Subpath의 첫 세그먼트는 반드시 .move 여야 합니다")
+      }
+    }
     self.segments = segments
     self.isClosed = isClosed
   }
