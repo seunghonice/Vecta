@@ -2,25 +2,46 @@ import AppKit
 import Combine
 import VectaEngine
 
-/// 아트보드 크기와 동일한 frame을 갖는 문서 뷰. 모델 좌표 = 뷰 좌표(flipped).
+/// 아트보드 크기 frame의 문서 뷰. 모델 좌표 = 뷰 좌표(flipped).
+/// NSEvent → CanvasEvent 변환과 활성 도구 디스패치만 담당하는 얇은 셸.
 final class CanvasView: NSView {
+  private static let viewHitTolerance: CGFloat = 4
+
   private let store: DocumentStore
   private let toolState: ToolState
-  private var dragStart: CGPoint?
-  private var dragCurrent: CGPoint?
-  private var storeSubscription: AnyCancellable?
+  private let tools: [ToolKind: CanvasTool] = [
+    .select: SelectTool(),
+    .rectangle: ShapeTool(shape: .rectangle),
+    .ellipse: ShapeTool(shape: .ellipse),
+  ]
+  private lazy var toolContext = ToolContext(store: store) { [weak self] in
+    self?.needsDisplay = true
+  }
+  private var subscriptions: Set<AnyCancellable> = []
 
   override var isFlipped: Bool { true }
+  override var acceptsFirstResponder: Bool { true }
+
+  private var activeTool: CanvasTool { tools[toolState.activeTool]! }
+
+  private var magnification: CGFloat {
+    enclosingScrollView?.magnification ?? 1
+  }
 
   init(store: DocumentStore, toolState: ToolState) {
     self.store = store
     self.toolState = toolState
     super.init(frame: NSRect(origin: .zero, size: store.document.artboard.size))
-    // objectWillChange는 변경 직전에 발행되지만 DispatchQueue 스케줄러는 항상
-    // async 디스패치하므로 sink는 다음 런루프 틱(변경 완료 후)에 실행된다.
-    storeSubscription = store.objectWillChange
+    // objectWillChange는 변경 직전 발행되지만 DispatchQueue 스케줄러는 항상
+    // async 디스패치하므로 sink는 변경 완료 후 실행된다.
+    store.objectWillChange
       .receive(on: DispatchQueue.main)
       .sink { [weak self] _ in self?.documentDidChange() }
+      .store(in: &subscriptions)
+    toolState.$activeTool
+      .receive(on: DispatchQueue.main)
+      .sink { [weak self] _ in self?.activeToolDidChange() }
+      .store(in: &subscriptions)
   }
 
   @available(*, unavailable)
@@ -29,67 +50,95 @@ final class CanvasView: NSView {
   }
 
   private func documentDidChange() {
-    // M1에서 아트보드 크기는 고정. 크기 변경 기능이 생기면 스크롤 위치 보존 필요.
     setFrameSize(store.document.artboard.size)
     needsDisplay = true
   }
 
-  override func draw(_ dirtyRect: NSRect) {
-    guard let context = NSGraphicsContext.current?.cgContext else { return }
-    context.setFillColor(CGColor.white)
-    context.fill(CGRect(origin: .zero, size: store.document.artboard.size))
-    SceneRenderer.render(store.document, in: context)
-    drawDragPreview(in: context)
-  }
-
-  // MARK: - 도형 드래그
-
-  override func mouseDown(with event: NSEvent) {
-    // convert(_:from: nil)은 윈도우 좌표 → 뷰 좌표 변환으로,
-    // NSScrollView magnification을 뷰 계층을 통해 자동 반영한다.
-    dragStart = convert(event.locationInWindow, from: nil)
-    dragCurrent = dragStart
-  }
-
-  override func mouseDragged(with event: NSEvent) {
-    guard dragStart != nil else { return }
-    dragCurrent = convert(event.locationInWindow, from: nil)
+  private func activeToolDidChange() {
+    window?.invalidateCursorRects(for: self)
     needsDisplay = true
   }
 
+  override func resetCursorRects() {
+    addCursorRect(bounds, cursor: activeTool.cursorKind.nsCursor)
+  }
+
+  override func draw(_ dirtyRect: NSRect) {
+    guard let cgContext = NSGraphicsContext.current?.cgContext else { return }
+    cgContext.setFillColor(CGColor.white)
+    cgContext.fill(CGRect(origin: .zero, size: store.document.artboard.size))
+    SceneRenderer.render(store.document, in: cgContext)
+    activeTool.drawOverlay(in: cgContext, scale: magnification, context: toolContext)
+  }
+
+  // MARK: - 이벤트 → CanvasEvent
+
+  private func canvasEvent(from event: NSEvent) -> CanvasEvent {
+    CanvasEvent(
+      point: convert(event.locationInWindow, from: nil),
+      isShiftPressed: event.modifierFlags.contains(.shift),
+      clickCount: event.clickCount,
+      hitTolerance: Self.viewHitTolerance / magnification)
+  }
+
+  override func mouseDown(with event: NSEvent) {
+    activeTool.mouseDown(canvasEvent(from: event), context: toolContext)
+  }
+
+  override func mouseDragged(with event: NSEvent) {
+    activeTool.mouseDragged(canvasEvent(from: event), context: toolContext)
+  }
+
   override func mouseUp(with event: NSEvent) {
-    defer {
-      dragStart = nil
-      dragCurrent = nil
-      needsDisplay = true
+    activeTool.mouseUp(canvasEvent(from: event), context: toolContext)
+  }
+
+  // MARK: - 키보드
+
+  override func keyDown(with event: NSEvent) {
+    if handleToolShortcut(event) || handleToolKey(event) {
+      return
     }
-    guard let start = dragStart else { return }
-    let end = convert(event.locationInWindow, from: nil)
-    let rect = CGRect(corner: start, oppositeCorner: end)
-    guard rect.width >= 1, rect.height >= 1 else { return }
-    let path = makePath(in: rect)
-    store.apply(actionName: "도형 추가") { document in
-      document.layers[0].nodes.append(
-        .path(PathNode(path: path, style: .defaultShape)))
+    super.keyDown(with: event)
+  }
+
+  private func handleToolShortcut(_ event: NSEvent) -> Bool {
+    guard event.modifierFlags.intersection([.command, .option, .control]).isEmpty,
+      let characters = event.charactersIgnoringModifiers?.lowercased()
+    else { return false }
+    switch characters {
+    case "v": toolState.activeTool = .select
+    case "m": toolState.activeTool = .rectangle
+    case "l": toolState.activeTool = .ellipse
+    default: return false
+    }
+    return true
+  }
+
+  private func handleToolKey(_ event: NSEvent) -> Bool {
+    guard let key = canvasKey(from: event) else { return false }
+    return activeTool.keyDown(key, context: toolContext)
+  }
+
+  private func canvasKey(from event: NSEvent) -> CanvasKey? {
+    switch event.keyCode {
+    case 51, 117: return .delete  // backspace, forward delete
+    case 53: return .escape
+    case 36, 76: return .enter  // return, keypad enter
+    default: return nil
     }
   }
 
-  private func makePath(in rect: CGRect) -> BezierPath {
-    switch toolState.activeShape {
-    case .rectangle: return .rectangle(rect)
-    case .ellipse: return .ellipse(in: rect)
-    }
+  override func selectAll(_ sender: Any?) {
+    store.select(store.document.topLevelNodeIDs)
   }
+}
 
-  private func drawDragPreview(in context: CGContext) {
-    guard let start = dragStart, let current = dragCurrent else { return }
-    let rect = CGRect(corner: start, oppositeCorner: current)
-    guard case .color(let fillColor) = Style.defaultShape.fill else { return }
-    context.saveGState()
-    context.setAlpha(0.5)
-    context.addPath(makePath(in: rect).cgPath)
-    context.setFillColor(fillColor.cgColor)
-    context.fillPath()
-    context.restoreGState()
+extension CursorKind {
+  var nsCursor: NSCursor {
+    switch self {
+    case .arrow: return .arrow
+    case .crosshair: return .crosshair
+    }
   }
 }
