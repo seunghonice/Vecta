@@ -48,3 +48,20 @@ public enum NodeTransformer {
     Transform2D(base.cgAffineTransform.concatenating(operation))
   }
 }
+
+extension Node {
+  /// 노드 transform (케이스 공통 접근).
+  public var transform: Transform2D {
+    switch self {
+    case .path(let node): return node.transform
+    case .group(let node): return node.transform
+    case .text(let node): return node.transform
+    case .image(let node): return node.transform
+    }
+  }
+
+  /// transform의 회전 성분 (도). 모델 y-아래 좌표계 — 양수 = 화면 시계 방향.
+  public var rotationDegrees: Double {
+    atan2(transform.b, transform.a) * 180 / .pi
+  }
+}
