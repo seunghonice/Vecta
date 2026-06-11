@@ -53,7 +53,7 @@ final class VectaDocument: NSDocument {
     // (기본 false)를 재정의하지 않는 한 메인 스레드에서 호출된다.
     // 이 클래스에서 canConcurrentlyReadDocuments를 절대 재정의하지 말 것.
     let vectorDocument = try AIFileReader.document(from: data)
-    try MainActor.assumeIsolated {
+    MainActor.assumeIsolated {
       store.load(vectorDocument)
     }
   }
