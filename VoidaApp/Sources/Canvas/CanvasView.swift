@@ -84,10 +84,11 @@ final class CanvasView: NSView {
   private func drawDragPreview(in context: CGContext) {
     guard let start = dragStart, let current = dragCurrent else { return }
     let rect = CGRect(corner: start, oppositeCorner: current)
+    guard case .color(let fillColor) = Style.defaultShape.fill else { return }
     context.saveGState()
     context.setAlpha(0.5)
     context.addPath(makePath(in: rect).cgPath)
-    context.setFillColor(CGColor(srgbRed: 0.27, green: 0.51, blue: 0.96, alpha: 1))
+    context.setFillColor(fillColor.cgColor)
     context.fillPath()
     context.restoreGState()
   }

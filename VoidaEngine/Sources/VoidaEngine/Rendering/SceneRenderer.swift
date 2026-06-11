@@ -84,12 +84,6 @@ public enum SceneRenderer {
   }
 }
 
-extension RGBA {
-  var cgColor: CGColor {
-    CGColor(srgbRed: red, green: green, blue: blue, alpha: alpha)
-  }
-}
-
 extension LineCap {
   var cgLineCap: CGLineCap {
     switch self {

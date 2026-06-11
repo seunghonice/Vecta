@@ -1,3 +1,5 @@
+import CoreGraphics
+
 /// sRGB 색상. 각 채널 0…1.
 public struct RGBA: Equatable, Codable, Sendable {
   public var red: Double
@@ -14,4 +16,8 @@ public struct RGBA: Equatable, Codable, Sendable {
 
   public static let black = RGBA(red: 0, green: 0, blue: 0)
   public static let white = RGBA(red: 1, green: 1, blue: 1)
+
+  public var cgColor: CGColor {
+    CGColor(srgbRed: red, green: green, blue: blue, alpha: alpha)
+  }
 }
