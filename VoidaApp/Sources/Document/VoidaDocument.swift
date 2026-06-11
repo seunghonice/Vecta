@@ -1,10 +1,12 @@
 import AppKit
+import SwiftUI
 import VoidaEngine
 
 final class VoidaDocument: NSDocument {
   private(set) lazy var store = DocumentStore(document: .empty()) {
     [weak self] in self?.undoManager
   }
+  private let toolState = ToolState()
 
   override class var autosavesInPlace: Bool { true }
 
@@ -13,8 +15,27 @@ final class VoidaDocument: NSDocument {
       contentRect: NSRect(x: 0, y: 0, width: 1000, height: 700),
       styleMask: [.titled, .closable, .miniaturizable, .resizable],
       backing: .buffered, defer: false)
+    window.contentView = makeContentView()
     window.center()
     addWindowController(NSWindowController(window: window))
+  }
+
+  private func makeContentView() -> NSView {
+    let scrollView = NSScrollView()
+    scrollView.documentView = CanvasView(store: store, toolState: toolState)
+    scrollView.hasHorizontalScroller = true
+    scrollView.hasVerticalScroller = true
+    scrollView.allowsMagnification = true
+    scrollView.minMagnification = 0.1
+    scrollView.maxMagnification = 64
+    scrollView.backgroundColor = .windowBackgroundColor
+
+    let toolbar = NSHostingView(rootView: ToolbarView(toolState: toolState))
+    let stack = NSStackView(views: [toolbar, scrollView])
+    stack.orientation = .horizontal
+    stack.distribution = .fill
+    stack.spacing = 0
+    return stack
   }
 
   override func data(ofType typeName: String) throws -> Data {
