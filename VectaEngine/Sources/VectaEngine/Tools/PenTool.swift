@@ -40,6 +40,13 @@ public final class PenTool: CanvasTool {
     }
   }
 
+  /// 도구 전환 시 작성 중 패스를 완결한다 (Illustrator 동작 — 작업 보존).
+  /// 앵커 2개 미만이면 버려진다.
+  public func deactivate(context: ToolContext) {
+    let path = builder.finishOpen()
+    commit(path, context: context)
+  }
+
   public func keyDown(_ key: CanvasKey, context: ToolContext) -> Bool {
     switch key {
     case .enter, .escape:
@@ -57,6 +64,8 @@ public final class PenTool: CanvasTool {
     cgContext.saveGState()
     cgContext.setStrokeColor(accent)
     cgContext.setLineWidth(1 / scale)
+    // builder.segments[0]은 항상 .move (addAnchor 첫 호출이 보장하는 불변식).
+    assert(builder.segments.first?.isMove == true)
     // 작성 중 세그먼트
     let preview = BezierPath(subpaths: [Subpath(segments: builder.segments, isClosed: false)])
     cgContext.addPath(preview.cgPath)

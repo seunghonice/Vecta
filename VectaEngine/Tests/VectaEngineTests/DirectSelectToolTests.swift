@@ -144,6 +144,15 @@ private func at(_ x: CGFloat, _ y: CGFloat) -> CanvasEvent {
   #expect(!undoManager.canUndo)
 }
 
+@Test @MainActor func deactivateClearsEditState() {
+  let (context, tool, _) = makeContext()
+  tool.mouseDown(at(50, 30), context: context)
+  tool.mouseUp(at(50, 30), context: context)
+  tool.deactivate(context: context)
+  #expect(tool.editNodeID == nil)
+  #expect(tool.selectedAnchor == nil)
+}
+
 @Test @MainActor func drawOverlaySmokeDoesNotCrash() {
   let (context, tool, _) = makeContext()
   tool.mouseDown(at(50, 30), context: context)  // 편집 대상

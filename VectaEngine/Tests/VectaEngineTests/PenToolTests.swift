@@ -86,3 +86,18 @@ private func at(_ x: CGFloat, _ y: CGFloat) -> CanvasEvent {
   tool.mouseMoved(at(200, 200), context: context)
   #expect(store.document == before)  // 모델 불변
 }
+
+@Test @MainActor func deactivateCommitsUnfinishedPath() {
+  let (context, tool, store) = makeContext()
+  tool.mouseDown(at(10, 10), context: context)
+  tool.mouseUp(at(10, 10), context: context)
+  tool.mouseDown(at(100, 10), context: context)
+  tool.mouseUp(at(100, 10), context: context)
+  tool.deactivate(context: context)
+  #expect(store.document.layers[0].nodes.count == 1)  // 완결 커밋
+  // 복귀 후 새 패스 시작 (이어 그리기 아님)
+  tool.mouseDown(at(200, 200), context: context)
+  tool.mouseUp(at(200, 200), context: context)
+  tool.deactivate(context: context)
+  #expect(store.document.layers[0].nodes.count == 1)  // 앵커 1개는 버려짐
+}

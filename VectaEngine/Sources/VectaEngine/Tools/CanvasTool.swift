@@ -14,12 +14,16 @@ public protocol CanvasTool: AnyObject {
   /// 모델 좌표 컨텍스트에 오버레이를 그린다. scale은 화면 확대 배율 —
   /// 핸들 등 화면 고정 크기 요소는 (상수 ÷ scale)로 그린다.
   func drawOverlay(in cgContext: CGContext, scale: CGFloat, context: ToolContext)
+  /// 도구가 비활성화될 때(다른 도구로 전환) 미완 작업을 정리한다.
+  /// 기본 구현은 no-op.
+  func deactivate(context: ToolContext)
 }
 
 extension CanvasTool {
   public func keyDown(_ key: CanvasKey, context: ToolContext) -> Bool { false }
   public func mouseMoved(_ event: CanvasEvent, context: ToolContext) {}
   public func drawOverlay(in cgContext: CGContext, scale: CGFloat, context: ToolContext) {}
+  public func deactivate(context: ToolContext) {}
 }
 
 /// 도구가 문서·선택에 접근하고 오버레이 리드로우를 요청하는 통로.

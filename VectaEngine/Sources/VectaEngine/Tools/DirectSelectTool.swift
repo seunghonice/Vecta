@@ -88,6 +88,16 @@ public final class DirectSelectTool: CanvasTool {
     }
   }
 
+  public func deactivate(context: ToolContext) {
+    if case .idle = dragState {
+    } else {
+      context.store.cancelTransient()
+      dragState = .idle
+    }
+    editNodeID = nil
+    selectedAnchor = nil
+  }
+
   public func keyDown(_ key: CanvasKey, context: ToolContext) -> Bool {
     guard key == .escape else { return false }
     if case .idle = dragState {
