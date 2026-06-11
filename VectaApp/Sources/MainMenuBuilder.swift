@@ -59,6 +59,10 @@ enum MainMenuBuilder {
     let redo = menu.addItem(
       withTitle: "실행 복귀", action: Selector(("redo:")), keyEquivalent: "Z")
     redo.keyEquivalentModifierMask = [.command, .shift]
+    menu.addItem(.separator())
+    menu.addItem(
+      withTitle: "모두 선택",
+      action: #selector(NSResponder.selectAll(_:)), keyEquivalent: "a")
     return menu
   }
 }

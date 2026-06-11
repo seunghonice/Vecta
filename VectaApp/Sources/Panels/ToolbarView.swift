@@ -1,4 +1,5 @@
 import SwiftUI
+import VectaEngine
 
 private enum ToolbarLayout {
   static let buttonSide: CGFloat = 36
@@ -14,9 +15,9 @@ struct ToolbarView: View {
 
   var body: some View {
     VStack(spacing: ToolbarLayout.buttonSpacing) {
-      ForEach(ShapeKind.allCases, id: \.self) { kind in
+      ForEach(ToolKind.allCases, id: \.self) { kind in
         Button {
-          toolState.activeShape = kind
+          toolState.activeTool = kind
         } label: {
           Image(systemName: kind.symbolName)
             .font(.system(size: ToolbarLayout.iconSize))
@@ -24,8 +25,7 @@ struct ToolbarView: View {
         }
         .buttonStyle(.borderless)
         .background(
-          toolState.activeShape == kind
-            ? Color.accentColor.opacity(0.25) : .clear,
+          toolState.activeTool == kind ? Color.accentColor.opacity(0.25) : .clear,
           in: RoundedRectangle(cornerRadius: ToolbarLayout.cornerRadius)
         )
         .help(kind.koreanName)

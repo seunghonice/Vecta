@@ -195,19 +195,21 @@ enum PathSegment  { case move(to:), line(to:), curve(to:control1:control2:) }
 ### 도구 — 상태 머신
 
 ```swift
-protocol Tool {
-    func mouseDown(_ event: CanvasEvent, on context: ToolContext)
-    func mouseDragged(_ event: CanvasEvent, on context: ToolContext)
-    func mouseUp(_ event: CanvasEvent, on context: ToolContext)
-    func keyDown(_ event: CanvasKeyEvent, on context: ToolContext) -> Bool
-    var cursor: NSCursor { get }
-    func drawOverlay(in ctx: CGContext, canvas: CanvasGeometry)
+protocol CanvasTool {
+    func mouseDown(_ event: CanvasEvent, context: ToolContext)
+    func mouseDragged(_ event: CanvasEvent, context: ToolContext)
+    func mouseUp(_ event: CanvasEvent, context: ToolContext)
+    func keyDown(_ key: CanvasKey, context: ToolContext) -> Bool
+    var cursorKind: CursorKind { get }  // NSCursor 매핑은 앱 레이어
+    func drawOverlay(in cgContext: CGContext, scale: CGFloat, context: ToolContext)
 }
 ```
 
 - `CanvasEvent`는 NSEvent를 모델 좌표로 변환한 합성 가능한 값 타입 →
   툴 로직을 AppKit 없이 단위 테스트 가능.
 - `ToolContext`는 문서 변경(`apply`)·선택 상태·스냅샷 트랜잭션 진입점.
+- 도구 로직(SelectTool/ShapeTool)은 VectaEngine/Tools/ 에 위치해
+  `swift test`로 헤드리스 테스트된다 (AppKit 비의존).
 
 | 도구 | 키 | 동작 |
 |---|---|---|

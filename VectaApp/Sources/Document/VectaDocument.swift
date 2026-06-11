@@ -15,14 +15,16 @@ final class VectaDocument: NSDocument {
       contentRect: NSRect(x: 0, y: 0, width: 1000, height: 700),
       styleMask: [.titled, .closable, .miniaturizable, .resizable],
       backing: .buffered, defer: false)
-    window.contentView = makeContentView()
+    let canvasView = CanvasView(store: store, toolState: toolState)
+    window.contentView = makeContentView(canvasView: canvasView)
+    window.initialFirstResponder = canvasView
     window.center()
     addWindowController(NSWindowController(window: window))
   }
 
-  private func makeContentView() -> NSView {
+  private func makeContentView(canvasView: CanvasView) -> NSView {
     let scrollView = NSScrollView()
-    scrollView.documentView = CanvasView(store: store, toolState: toolState)
+    scrollView.documentView = canvasView
     scrollView.hasHorizontalScroller = true
     scrollView.hasVerticalScroller = true
     scrollView.allowsMagnification = true
