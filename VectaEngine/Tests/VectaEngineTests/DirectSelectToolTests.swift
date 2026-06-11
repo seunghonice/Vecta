@@ -1,0 +1,109 @@
+import CoreGraphics
+import Foundation
+import Testing
+
+@testable import VectaEngine
+
+@MainActor
+private func makeContext() -> (ToolContext, DirectSelectTool, NodeID) {
+  // 100×50 사각형 (앵커: (10,10) (110,10) (110,60) (10,60))
+  let node = PathNode(
+    path: .rectangle(CGRect(x: 10, y: 10, width: 100, height: 50)),
+    style: Style(fill: .color(.black)))
+  var document = VectorDocument.empty(size: CGSize(width: 300, height: 300))
+  document.layers[0].nodes = [.path(node)]
+  let context = ToolContext(store: DocumentStore(document: document))
+  return (context, DirectSelectTool(), node.id)
+}
+
+private func at(_ x: CGFloat, _ y: CGFloat) -> CanvasEvent {
+  CanvasEvent(point: CGPoint(x: x, y: y), hitTolerance: 4)
+}
+
+@Test @MainActor func clickOnPathSetsEditTarget() {
+  let (context, tool, nodeID) = makeContext()
+  tool.mouseDown(at(50, 30), context: context)
+  tool.mouseUp(at(50, 30), context: context)
+  #expect(tool.editNodeID == nodeID)
+  #expect(tool.selectedAnchor == nil)
+}
+
+@Test @MainActor func clickOnAnchorSelectsIt() {
+  let (context, tool, _) = makeContext()
+  tool.mouseDown(at(50, 30), context: context)  // 편집 대상 지정
+  tool.mouseUp(at(50, 30), context: context)
+  tool.mouseDown(at(110, 60), context: context)  // 우하단 앵커
+  tool.mouseUp(at(110, 60), context: context)
+  #expect(tool.selectedAnchor == AnchorRef(subpathIndex: 0, segmentIndex: 2))
+}
+
+@Test @MainActor func draggingAnchorMovesItWithSingleUndo() {
+  let undoManager = UndoManager()
+  let node = PathNode(
+    path: .rectangle(CGRect(x: 10, y: 10, width: 100, height: 50)),
+    style: Style(fill: .color(.black)))
+  var document = VectorDocument.empty(size: CGSize(width: 300, height: 300))
+  document.layers[0].nodes = [.path(node)]
+  let store = DocumentStore(document: document) { undoManager }
+  let context = ToolContext(store: store)
+  let tool = DirectSelectTool()
+  tool.mouseDown(at(50, 30), context: context)
+  tool.mouseUp(at(50, 30), context: context)
+  tool.mouseDown(at(110, 60), context: context)  // 앵커 잡기
+  tool.mouseDragged(at(130, 80), context: context)
+  tool.mouseDragged(at(140, 90), context: context)
+  tool.mouseUp(at(140, 90), context: context)
+  guard case .path(let edited)? = store.document.topLevelNode(id: node.id) else {
+    Issue.record("패스가 아님")
+    return
+  }
+  #expect(
+    edited.path.anchorPosition(AnchorRef(subpathIndex: 0, segmentIndex: 2))
+      == CGPoint(x: 140, y: 90))
+  undoManager.undo()
+  guard case .path(let restored)? = store.document.topLevelNode(id: node.id) else { return }
+  #expect(
+    restored.path.anchorPosition(AnchorRef(subpathIndex: 0, segmentIndex: 2))
+      == CGPoint(x: 110, y: 60))
+  #expect(!undoManager.canUndo)
+}
+
+@Test @MainActor func draggingAnchorOnTransformedNodeUsesLocalCoordinates() {
+  // 노드가 (100,0) 이동돼 있으면 모델 좌표 → 로컬 역변환 후 편집
+  let node = PathNode(
+    path: .rectangle(CGRect(x: 0, y: 0, width: 50, height: 50)),
+    style: Style(fill: .color(.black)),
+    transform: Transform2D(CGAffineTransform(translationX: 100, y: 0)))
+  var document = VectorDocument.empty(size: CGSize(width: 300, height: 300))
+  document.layers[0].nodes = [.path(node)]
+  let context = ToolContext(store: DocumentStore(document: document))
+  let tool = DirectSelectTool()
+  tool.mouseDown(at(120, 20), context: context)  // 본체
+  tool.mouseUp(at(120, 20), context: context)
+  tool.mouseDown(at(150, 50), context: context)  // 모델 (150,50) = 로컬 (50,50) 앵커
+  tool.mouseDragged(at(160, 60), context: context)
+  tool.mouseUp(at(160, 60), context: context)
+  guard case .path(let edited)? = context.store.document.topLevelNode(id: node.id) else { return }
+  // 로컬 좌표로 (60,60)
+  #expect(
+    edited.path.anchorPosition(AnchorRef(subpathIndex: 0, segmentIndex: 2))
+      == CGPoint(x: 60, y: 60))
+}
+
+@Test @MainActor func clickEmptyClearsEditTarget() {
+  let (context, tool, _) = makeContext()
+  tool.mouseDown(at(50, 30), context: context)
+  tool.mouseUp(at(50, 30), context: context)
+  tool.mouseDown(at(250, 250), context: context)
+  tool.mouseUp(at(250, 250), context: context)
+  #expect(tool.editNodeID == nil)
+}
+
+@Test @MainActor func escapeClearsEditState() {
+  let (context, tool, _) = makeContext()
+  tool.mouseDown(at(50, 30), context: context)
+  tool.mouseUp(at(50, 30), context: context)
+  #expect(tool.keyDown(.escape, context: context))
+  #expect(tool.editNodeID == nil)
+  #expect(tool.selectedAnchor == nil)
+}
