@@ -131,7 +131,7 @@ public final class SelectTool: CanvasTool {
   private static let minimumScaleDenominator: CGFloat = 0.001
   private static let minimumScale: CGFloat = 0.01
 
-  func resize(
+  private func resize(
     to event: CanvasEvent, handle: SelectionHandle, baseBounds: CGRect, context: ToolContext
   ) {
     let anchor = handle.anchor(in: baseBounds)
@@ -157,7 +157,7 @@ public final class SelectTool: CanvasTool {
     }
   }
 
-  func rotate(
+  private func rotate(
     to event: CanvasEvent, center: CGPoint, startAngle: CGFloat, context: ToolContext
   ) {
     let delta = angle(from: center, to: event.point) - startAngle
@@ -180,7 +180,7 @@ public final class SelectTool: CanvasTool {
     return ratio
   }
 
-  func angle(from center: CGPoint, to point: CGPoint) -> CGFloat {
+  private func angle(from center: CGPoint, to point: CGPoint) -> CGFloat {
     atan2(point.y - center.y, point.x - center.x)
   }
 
@@ -188,6 +188,7 @@ public final class SelectTool: CanvasTool {
 
   private static let handleScreenSize: CGFloat = 8
   private static let selectionLineScreenWidth: CGFloat = 1
+  private static let accentColor = CGColor(srgbRed: 0.0, green: 0.47, blue: 1.0, alpha: 1.0)
 
   public func drawOverlay(in cgContext: CGContext, scale: CGFloat, context: ToolContext) {
     if let bounds = context.store.selectionBounds {
@@ -200,9 +201,8 @@ public final class SelectTool: CanvasTool {
   }
 
   private func drawSelectionChrome(bounds: CGRect, in cgContext: CGContext, scale: CGFloat) {
-    let accent = CGColor(srgbRed: 0.0, green: 0.47, blue: 1.0, alpha: 1)
     cgContext.saveGState()
-    cgContext.setStrokeColor(accent)
+    cgContext.setStrokeColor(Self.accentColor)
     cgContext.setLineWidth(Self.selectionLineScreenWidth / scale)
     cgContext.stroke(bounds)
     let side = Self.handleScreenSize / scale
@@ -218,9 +218,8 @@ public final class SelectTool: CanvasTool {
   }
 
   private func drawMarquee(rect: CGRect, in cgContext: CGContext, scale: CGFloat) {
-    let accent = CGColor(srgbRed: 0.0, green: 0.47, blue: 1.0, alpha: 1)
     cgContext.saveGState()
-    cgContext.setStrokeColor(accent)
+    cgContext.setStrokeColor(Self.accentColor)
     cgContext.setFillColor(CGColor(srgbRed: 0.0, green: 0.47, blue: 1.0, alpha: 0.1))
     cgContext.setLineWidth(Self.selectionLineScreenWidth / scale)
     cgContext.setLineDash(phase: 0, lengths: [4 / scale, 4 / scale])
