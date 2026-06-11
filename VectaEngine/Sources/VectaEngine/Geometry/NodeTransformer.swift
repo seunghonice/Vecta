@@ -26,7 +26,8 @@ public enum NodeTransformer {
     return applying(operation, to: node)
   }
 
-  private static func applying(_ operation: CGAffineTransform, to node: Node) -> Node {
+  /// 부모 좌표계 연산을 노드 transform 뒤에 합성한다 (그룹 해제 등에서 사용).
+  public static func applying(_ operation: CGAffineTransform, to node: Node) -> Node {
     switch node {
     case .path(var pathNode):
       pathNode.transform = composed(pathNode.transform, operation)
