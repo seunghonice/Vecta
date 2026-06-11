@@ -23,6 +23,10 @@ public final class DocumentStore: ObservableObject {
   }
 
   public func apply(actionName: String, _ change: (inout VectorDocument) -> Void) {
+    // 드래그 중 외부 개입(undo·삭제 등) 방어: 진행 중 제스처를 취소하고 적용한다.
+    if transientBase != nil {
+      cancelTransient()
+    }
     var updated = document
     change(&updated)
     guard updated != document else { return }
@@ -33,6 +37,7 @@ public final class DocumentStore: ObservableObject {
 
   /// 파일 열기 등 undo 대상이 아닌 전체 교체.
   public func load(_ newDocument: VectorDocument) {
+    transientBase = nil
     document = newDocument
     selection = []
     undoManagerProvider()?.removeAllActions()
@@ -79,12 +84,11 @@ public final class DocumentStore: ObservableObject {
     transientBase = document
   }
 
-  /// undo 등록 없이 문서를 갱신·발행한다. begin 없이 호출하면 무시.
+  /// undo 등록 없이 문서를 갱신·발행한다.
+  /// 세션이 없으면 무시한다 — 제스처 중 외부 개입(undo·load 등)으로 세션이
+  /// 파기된 뒤 도구가 계속 드래그 이벤트를 보내는 정상 경로다.
   public func updateTransient(_ change: (inout VectorDocument) -> Void) {
-    guard var base = transientBase else {
-      assertionFailure("beginTransient 없이 updateTransient 호출")
-      return
-    }
+    guard var base = transientBase else { return }
     change(&base)
     document = base
   }
