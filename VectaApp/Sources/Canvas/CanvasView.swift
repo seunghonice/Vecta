@@ -55,6 +55,9 @@ final class CanvasView: NSView {
   }
 
   private func activeToolDidChange() {
+    // 드래그 중 도구 전환(V/M/L) 시 이전 도구의 미완 제스처를 정리한다
+    // (세션 없으면 no-op).
+    store.cancelTransient()
     window?.invalidateCursorRects(for: self)
     needsDisplay = true
   }
