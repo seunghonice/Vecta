@@ -33,6 +33,8 @@ public enum CursorKind: Equatable, Sendable {
 
 public enum ToolKind: String, CaseIterable, Equatable, Sendable {
   case select
+  case directSelect
+  case pen
   case rectangle
   case ellipse
 }
