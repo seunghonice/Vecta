@@ -16,6 +16,8 @@ final class CanvasView: NSView {
     self.store = store
     self.toolState = toolState
     super.init(frame: NSRect(origin: .zero, size: store.document.artboard.size))
+    // objectWillChange는 변경 직전에 발행되지만 DispatchQueue 스케줄러는 항상
+    // async 디스패치하므로 sink는 다음 런루프 틱(변경 완료 후)에 실행된다.
     storeSubscription = store.objectWillChange
       .receive(on: DispatchQueue.main)
       .sink { [weak self] _ in self?.documentDidChange() }
@@ -27,6 +29,7 @@ final class CanvasView: NSView {
   }
 
   private func documentDidChange() {
+    // M1에서 아트보드 크기는 고정. 크기 변경 기능이 생기면 스크롤 위치 보존 필요.
     setFrameSize(store.document.artboard.size)
     needsDisplay = true
   }
@@ -42,6 +45,8 @@ final class CanvasView: NSView {
   // MARK: - 도형 드래그
 
   override func mouseDown(with event: NSEvent) {
+    // convert(_:from: nil)은 윈도우 좌표 → 뷰 좌표 변환으로,
+    // NSScrollView magnification을 뷰 계층을 통해 자동 반영한다.
     dragStart = convert(event.locationInWindow, from: nil)
     dragCurrent = dragStart
   }
