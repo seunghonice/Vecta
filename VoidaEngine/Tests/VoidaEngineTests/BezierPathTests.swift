@@ -49,3 +49,18 @@ import Testing
   let rect = CGRect(corner: CGPoint(x: 100, y: 80), oppositeCorner: CGPoint(x: 40, y: 20))
   #expect(rect == CGRect(x: 40, y: 20, width: 60, height: 60))
 }
+
+@Test func decodingLineFirstSubpathThrows() {
+  let json = #"{"isClosed":false,"segments":[{"line":{"to":[5,5]}}]}"#
+  #expect(throws: DecodingError.self) {
+    try JSONDecoder().decode(Subpath.self, from: Data(json.utf8))
+  }
+}
+
+@Test func decodingValidSubpathStillWorks() throws {
+  let original = Subpath(
+    segments: [.move(to: CGPoint(x: 1, y: 2)), .line(to: CGPoint(x: 3, y: 4))],
+    isClosed: false)
+  let data = try JSONEncoder().encode(original)
+  #expect(try JSONDecoder().decode(Subpath.self, from: data) == original)
+}
