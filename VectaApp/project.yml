@@ -1,0 +1,45 @@
+name: Vecta
+options:
+  bundleIdPrefix: dev.vecta
+  deploymentTarget:
+    macOS: "14.0"
+packages:
+  VectaEngine:
+    path: ../VectaEngine
+targets:
+  Vecta:
+    type: application
+    platform: macOS
+    sources: [Sources]
+    dependencies:
+      - package: VectaEngine
+    settings:
+      base:
+        SWIFT_VERSION: "5.0"
+        PRODUCT_BUNDLE_IDENTIFIER: dev.vecta.app
+        CODE_SIGN_IDENTITY: "-"
+    info:
+      path: Sources/Info.plist
+      properties:
+        CFBundleName: Vecta
+        NSPrincipalClass: NSApplication
+        LSMinimumSystemVersion: "14.0"
+        CFBundleDocumentTypes:
+          - CFBundleTypeName: Adobe Illustrator Document
+            CFBundleTypeRole: Editor
+            LSItemContentTypes: [com.adobe.illustrator]
+            LSHandlerRank: Alternate
+            NSDocumentClass: Vecta.VectaDocument
+        UTImportedTypeDeclarations:
+          - UTTypeIdentifier: com.adobe.illustrator
+            UTTypeDescription: Adobe Illustrator Document
+            UTTypeConformsTo: [com.adobe.pdf]
+            UTTypeTagSpecification:
+              public.filename-extension: [ai]
+schemes:
+  Vecta:
+    build:
+      targets:
+        Vecta: all
+    run:
+      config: Debug

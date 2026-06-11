@@ -1,14 +1,14 @@
-# Voida M1 — 최소 루프 구현 계획
+# Vecta M1 — 최소 루프 구현 계획
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** 도형(사각형/타원)을 드래그로 그리고, .ai(PDF) 파일로 저장하고, 다시 열어 100% 복원하는 macOS 앱의 최소 루프 완성.
 
-**Architecture:** VoidaEngine(SPM 패키지, UI 의존성 없음)에 모델·렌더러·.ai 입출력·undo 스토어를 두고 `swift test`로 검증한다. VoidaApp(XcodeGen 생성 Xcode 프로젝트)은 NSDocument + AppKit 캔버스 + SwiftUI 툴바의 얇은 셸이다. .ai 저장은 CGContext로 PDF를 그리고 마지막 `startxref` 직전에 씬그래프 JSON을 base64 주석 블록으로 삽입한다(스파이크 검증 완료 — 스펙 6절).
+**Architecture:** VectaEngine(SPM 패키지, UI 의존성 없음)에 모델·렌더러·.ai 입출력·undo 스토어를 두고 `swift test`로 검증한다. VectaApp(XcodeGen 생성 Xcode 프로젝트)은 NSDocument + AppKit 캔버스 + SwiftUI 툴바의 얇은 셸이다. .ai 저장은 CGContext로 PDF를 그리고 마지막 `startxref` 직전에 씬그래프 JSON을 base64 주석 블록으로 삽입한다(스파이크 검증 완료 — 스펙 6절).
 
 **Tech Stack:** Swift 6.3 툴체인(언어 모드 v5), Swift Testing(`import Testing`), CoreGraphics, AppKit, SwiftUI, XcodeGen 2.45, swift-format(툴체인 내장).
 
-**참조 스펙:** `docs/superpowers/specs/2026-06-11-voida-vector-editor-design.md`
+**참조 스펙:** `docs/superpowers/specs/2026-06-11-vecta-vector-editor-design.md`
 
 ---
 
@@ -25,18 +25,18 @@
 
 매 커밋 전 **순서 고정**: ① analyze → ② test → ③ format → ④ commit.
 
-- 엔진: ① `swift build` ② `swift test` ③ `swift format --in-place --recursive Sources Tests` (VoidaEngine 디렉토리에서)
-- 앱 변경 시 ①은 `xcodebuild` 빌드, ③은 `swift format --in-place --recursive VoidaApp/Sources`
+- 엔진: ① `swift build` ② `swift test` ③ `swift format --in-place --recursive Sources Tests` (VectaEngine 디렉토리에서)
+- 앱 변경 시 ①은 `xcodebuild` 빌드, ③은 `swift format --in-place --recursive VectaApp/Sources`
 - 커밋 메시지는 한국어 + `feat:`/`test:`/`chore:` 접두사, Co-Authored-By 금지
 
 ## 파일 구조 (M1 완성 시점)
 
 ```
-voida.dev/
+vecta/
 ├── .gitignore
-├── VoidaEngine/
+├── VectaEngine/
 │   ├── Package.swift
-│   ├── Sources/VoidaEngine/
+│   ├── Sources/VectaEngine/
 │   │   ├── Model/
 │   │   │   ├── NodeID.swift          # UUID 래퍼
 │   │   │   ├── RGBA.swift            # 색상 (0…1 Double 4채널)
@@ -61,7 +61,7 @@ voida.dev/
 │   │       ├── ExportError.swift
 │   │       ├── NativeScenePayload.swift   # JSON 임베드/추출
 │   │       └── AIFileWriter.swift
-│   └── Tests/VoidaEngineTests/
+│   └── Tests/VectaEngineTests/
 │       ├── TestSupport.swift          # 비트맵 렌더·픽셀 검사 헬퍼
 │       ├── RGBATests.swift
 │       ├── Transform2DTests.swift
@@ -73,13 +73,13 @@ voida.dev/
 │       ├── AIFileWriterTests.swift
 │       ├── AIFileReaderTests.swift
 │       └── DocumentStoreTests.swift
-└── VoidaApp/
-    ├── project.yml                    # XcodeGen 정의 (Voida.xcodeproj는 git 무시)
+└── VectaApp/
+    ├── project.yml                    # XcodeGen 정의 (Vecta.xcodeproj는 git 무시)
     └── Sources/
         ├── main.swift
         ├── AppDelegate.swift
         ├── MainMenuBuilder.swift
-        ├── Document/VoidaDocument.swift
+        ├── Document/VectaDocument.swift
         ├── Canvas/CanvasView.swift
         ├── Canvas/ToolState.swift
         └── Panels/ToolbarView.swift
@@ -92,13 +92,13 @@ voida.dev/
 
 ---
 
-### Task 1: 리포 기반 + VoidaEngine 패키지 스캐폴드
+### Task 1: 리포 기반 + VectaEngine 패키지 스캐폴드
 
 **Files:**
 - Create: `.gitignore`
-- Create: `VoidaEngine/Package.swift`
-- Create: `VoidaEngine/Sources/VoidaEngine/Model/NodeID.swift`
-- Test: `VoidaEngine/Tests/VoidaEngineTests/RGBATests.swift` (다음 태스크에서 본격 사용, 여기선 스모크)
+- Create: `VectaEngine/Package.swift`
+- Create: `VectaEngine/Sources/VectaEngine/Model/NodeID.swift`
+- Test: `VectaEngine/Tests/VectaEngineTests/RGBATests.swift` (다음 태스크에서 본격 사용, 여기선 스모크)
 
 - [ ] **Step 1: .gitignore 작성**
 
@@ -107,8 +107,8 @@ voida.dev/
 .build/
 .swiftpm/
 xcuserdata/
-VoidaApp/Voida.xcodeproj
-VoidaApp/build/
+VectaApp/Vecta.xcodeproj
+VectaApp/build/
 ```
 
 - [ ] **Step 2: Package.swift 작성**
@@ -118,19 +118,19 @@ VoidaApp/build/
 import PackageDescription
 
 let package = Package(
-    name: "VoidaEngine",
+    name: "VectaEngine",
     platforms: [.macOS(.v14)],
     products: [
-        .library(name: "VoidaEngine", targets: ["VoidaEngine"])
+        .library(name: "VectaEngine", targets: ["VectaEngine"])
     ],
     targets: [
         .target(
-            name: "VoidaEngine",
+            name: "VectaEngine",
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
         .testTarget(
-            name: "VoidaEngineTests",
-            dependencies: ["VoidaEngine"],
+            name: "VectaEngineTests",
+            dependencies: ["VectaEngine"],
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
     ]
@@ -139,7 +139,7 @@ let package = Package(
 
 언어 모드 v5인 이유: M1에서 Swift 6 strict concurrency와 AppKit/UndoManager 통합의 마찰을 피한다. M6(마감)에서 v6 전환을 검토한다.
 
-- [ ] **Step 3: 첫 모델 타입 NodeID 작성** — `Sources/VoidaEngine/Model/NodeID.swift`
+- [ ] **Step 3: 첫 모델 타입 NodeID 작성** — `Sources/VectaEngine/Model/NodeID.swift`
 
 ```swift
 import Foundation
@@ -154,12 +154,12 @@ public struct NodeID: Hashable, Codable, Sendable {
 }
 ```
 
-- [ ] **Step 4: 스모크 테스트 작성** — `Tests/VoidaEngineTests/RGBATests.swift`
+- [ ] **Step 4: 스모크 테스트 작성** — `Tests/VectaEngineTests/RGBATests.swift`
 
 ```swift
 import Foundation
 import Testing
-@testable import VoidaEngine
+@testable import VectaEngine
 
 @Test func nodeIDCodableRoundTrip() throws {
     let original = NodeID()
@@ -173,15 +173,15 @@ import Testing
 
 - [ ] **Step 5: 빌드·테스트 실행**
 
-Run: `cd VoidaEngine && swift build && swift test`
+Run: `cd VectaEngine && swift build && swift test`
 Expected: 빌드 성공, `1 test passed`
 
 - [ ] **Step 6: 포맷 후 커밋**
 
 ```bash
-cd VoidaEngine && swift format --in-place --recursive Sources Tests && cd ..
+cd VectaEngine && swift format --in-place --recursive Sources Tests && cd ..
 git add -A
-git commit -m "feat: VoidaEngine 패키지 스캐폴드와 NodeID 모델 추가"
+git commit -m "feat: VectaEngine 패키지 스캐폴드와 NodeID 모델 추가"
 ```
 
 ---
@@ -189,8 +189,8 @@ git commit -m "feat: VoidaEngine 패키지 스캐폴드와 NodeID 모델 추가"
 ### Task 2: RGBA 색상 모델
 
 **Files:**
-- Create: `VoidaEngine/Sources/VoidaEngine/Model/RGBA.swift`
-- Modify: `VoidaEngine/Tests/VoidaEngineTests/RGBATests.swift`
+- Create: `VectaEngine/Sources/VectaEngine/Model/RGBA.swift`
+- Modify: `VectaEngine/Tests/VectaEngineTests/RGBATests.swift`
 
 - [ ] **Step 1: 실패하는 테스트 추가** — RGBATests.swift에 append
 
@@ -214,10 +214,10 @@ git commit -m "feat: VoidaEngine 패키지 스캐폴드와 NodeID 모델 추가"
 
 - [ ] **Step 2: 실패 확인**
 
-Run: `cd VoidaEngine && swift test`
+Run: `cd VectaEngine && swift test`
 Expected: FAIL — `cannot find 'RGBA' in scope`
 
-- [ ] **Step 3: 구현** — `Sources/VoidaEngine/Model/RGBA.swift`
+- [ ] **Step 3: 구현** — `Sources/VectaEngine/Model/RGBA.swift`
 
 ```swift
 /// sRGB 색상. 각 채널 0…1.
@@ -241,13 +241,13 @@ public struct RGBA: Equatable, Codable, Sendable {
 
 - [ ] **Step 4: 테스트 통과 확인**
 
-Run: `cd VoidaEngine && swift test`
+Run: `cd VectaEngine && swift test`
 Expected: PASS (4 tests)
 
 - [ ] **Step 5: 포맷 후 커밋**
 
 ```bash
-cd VoidaEngine && swift format --in-place --recursive Sources Tests && cd ..
+cd VectaEngine && swift format --in-place --recursive Sources Tests && cd ..
 git add -A && git commit -m "feat: RGBA 색상 모델 추가"
 ```
 
@@ -258,8 +258,8 @@ git add -A && git commit -m "feat: RGBA 색상 모델 추가"
 CGAffineTransform은 Codable이 아니므로 retroactive conformance 대신 자체 타입을 둔다.
 
 **Files:**
-- Create: `VoidaEngine/Sources/VoidaEngine/Model/Transform2D.swift`
-- Test: `VoidaEngine/Tests/VoidaEngineTests/Transform2DTests.swift`
+- Create: `VectaEngine/Sources/VectaEngine/Model/Transform2D.swift`
+- Test: `VectaEngine/Tests/VectaEngineTests/Transform2DTests.swift`
 
 - [ ] **Step 1: 실패하는 테스트 작성**
 
@@ -267,7 +267,7 @@ CGAffineTransform은 Codable이 아니므로 retroactive conformance 대신 자�
 import CoreGraphics
 import Foundation
 import Testing
-@testable import VoidaEngine
+@testable import VectaEngine
 
 @Test func transform2DIdentity() {
     #expect(Transform2D.identity.cgAffineTransform == .identity)
@@ -294,10 +294,10 @@ import Testing
 
 - [ ] **Step 2: 실패 확인**
 
-Run: `cd VoidaEngine && swift test`
+Run: `cd VectaEngine && swift test`
 Expected: FAIL — `cannot find 'Transform2D' in scope`
 
-- [ ] **Step 3: 구현** — `Sources/VoidaEngine/Model/Transform2D.swift`
+- [ ] **Step 3: 구현** — `Sources/VectaEngine/Model/Transform2D.swift`
 
 ```swift
 import CoreGraphics
@@ -337,13 +337,13 @@ public struct Transform2D: Equatable, Codable, Sendable {
 
 - [ ] **Step 4: 통과 확인**
 
-Run: `cd VoidaEngine && swift test`
+Run: `cd VectaEngine && swift test`
 Expected: PASS
 
 - [ ] **Step 5: 포맷 후 커밋**
 
 ```bash
-cd VoidaEngine && swift format --in-place --recursive Sources Tests && cd ..
+cd VectaEngine && swift format --in-place --recursive Sources Tests && cd ..
 git add -A && git commit -m "feat: Codable 2D 아핀 변환 Transform2D 추가"
 ```
 
@@ -352,11 +352,11 @@ git add -A && git commit -m "feat: Codable 2D 아핀 변환 Transform2D 추가"
 ### Task 4: BezierPath 모델 + 팩토리 + CGPath 변환 + 코너 정규화
 
 **Files:**
-- Create: `VoidaEngine/Sources/VoidaEngine/Model/BezierPath.swift`
-- Create: `VoidaEngine/Sources/VoidaEngine/Geometry/BezierPath+Factory.swift`
-- Create: `VoidaEngine/Sources/VoidaEngine/Geometry/BezierPath+CGPath.swift`
-- Create: `VoidaEngine/Sources/VoidaEngine/Geometry/CGRect+Corners.swift`
-- Test: `VoidaEngine/Tests/VoidaEngineTests/BezierPathTests.swift`
+- Create: `VectaEngine/Sources/VectaEngine/Model/BezierPath.swift`
+- Create: `VectaEngine/Sources/VectaEngine/Geometry/BezierPath+Factory.swift`
+- Create: `VectaEngine/Sources/VectaEngine/Geometry/BezierPath+CGPath.swift`
+- Create: `VectaEngine/Sources/VectaEngine/Geometry/CGRect+Corners.swift`
+- Test: `VectaEngine/Tests/VectaEngineTests/BezierPathTests.swift`
 
 - [ ] **Step 1: 실패하는 테스트 작성**
 
@@ -364,7 +364,7 @@ git add -A && git commit -m "feat: Codable 2D 아핀 변환 Transform2D 추가"
 import CoreGraphics
 import Foundation
 import Testing
-@testable import VoidaEngine
+@testable import VectaEngine
 
 @Test func rectangleFactoryProducesClosedSubpath() {
     let path = BezierPath.rectangle(CGRect(x: 10, y: 20, width: 100, height: 50))
@@ -415,10 +415,10 @@ import Testing
 
 - [ ] **Step 2: 실패 확인**
 
-Run: `cd VoidaEngine && swift test`
+Run: `cd VectaEngine && swift test`
 Expected: FAIL — `cannot find 'BezierPath' in scope`
 
-- [ ] **Step 3: 모델 구현** — `Sources/VoidaEngine/Model/BezierPath.swift`
+- [ ] **Step 3: 모델 구현** — `Sources/VectaEngine/Model/BezierPath.swift`
 
 ```swift
 import CoreGraphics
@@ -449,7 +449,7 @@ public struct BezierPath: Equatable, Codable, Sendable {
 }
 ```
 
-- [ ] **Step 4: 팩토리 구현** — `Sources/VoidaEngine/Geometry/BezierPath+Factory.swift`
+- [ ] **Step 4: 팩토리 구현** — `Sources/VectaEngine/Geometry/BezierPath+Factory.swift`
 
 ```swift
 import CoreGraphics
@@ -499,7 +499,7 @@ extension BezierPath {
 }
 ```
 
-- [ ] **Step 5: CGPath 변환 구현** — `Sources/VoidaEngine/Geometry/BezierPath+CGPath.swift`
+- [ ] **Step 5: CGPath 변환 구현** — `Sources/VectaEngine/Geometry/BezierPath+CGPath.swift`
 
 ```swift
 import CoreGraphics
@@ -527,7 +527,7 @@ extension BezierPath {
 }
 ```
 
-- [ ] **Step 6: 코너 정규화 구현** — `Sources/VoidaEngine/Geometry/CGRect+Corners.swift`
+- [ ] **Step 6: 코너 정규화 구현** — `Sources/VectaEngine/Geometry/CGRect+Corners.swift`
 
 ```swift
 import CoreGraphics
@@ -546,13 +546,13 @@ extension CGRect {
 
 - [ ] **Step 7: 통과 확인**
 
-Run: `cd VoidaEngine && swift test`
+Run: `cd VectaEngine && swift test`
 Expected: PASS
 
 - [ ] **Step 8: 포맷 후 커밋**
 
 ```bash
-cd VoidaEngine && swift format --in-place --recursive Sources Tests && cd ..
+cd VectaEngine && swift format --in-place --recursive Sources Tests && cd ..
 git add -A && git commit -m "feat: BezierPath 모델과 도형 팩토리, CGPath 변환 추가"
 ```
 
@@ -561,8 +561,8 @@ git add -A && git commit -m "feat: BezierPath 모델과 도형 팩토리, CGPath
 ### Task 5: 스타일 타입 (Paint / Gradient / Stroke / Style)
 
 **Files:**
-- Create: `VoidaEngine/Sources/VoidaEngine/Model/Style.swift`
-- Test: `VoidaEngine/Tests/VoidaEngineTests/StyleTests.swift`
+- Create: `VectaEngine/Sources/VectaEngine/Model/Style.swift`
+- Test: `VectaEngine/Tests/VectaEngineTests/StyleTests.swift`
 
 - [ ] **Step 1: 실패하는 테스트 작성**
 
@@ -570,7 +570,7 @@ git add -A && git commit -m "feat: BezierPath 모델과 도형 팩토리, CGPath
 import CoreGraphics
 import Foundation
 import Testing
-@testable import VoidaEngine
+@testable import VectaEngine
 
 @Test func styleCodableRoundTrip() throws {
     let original = Style(
@@ -605,10 +605,10 @@ import Testing
 
 - [ ] **Step 2: 실패 확인**
 
-Run: `cd VoidaEngine && swift test`
+Run: `cd VectaEngine && swift test`
 Expected: FAIL — `cannot find 'Style' in scope`
 
-- [ ] **Step 3: 구현** — `Sources/VoidaEngine/Model/Style.swift`
+- [ ] **Step 3: 구현** — `Sources/VectaEngine/Model/Style.swift`
 
 ```swift
 import CoreGraphics
@@ -689,13 +689,13 @@ public struct Style: Equatable, Codable, Sendable {
 
 - [ ] **Step 4: 통과 확인**
 
-Run: `cd VoidaEngine && swift test`
+Run: `cd VectaEngine && swift test`
 Expected: PASS
 
 - [ ] **Step 5: 포맷 후 커밋**
 
 ```bash
-cd VoidaEngine && swift format --in-place --recursive Sources Tests && cd ..
+cd VectaEngine && swift format --in-place --recursive Sources Tests && cd ..
 git add -A && git commit -m "feat: Paint·Gradient·Stroke·Style 스타일 모델 추가"
 ```
 
@@ -704,10 +704,10 @@ git add -A && git commit -m "feat: Paint·Gradient·Stroke·Style 스타일 모�
 ### Task 6: 노드 트리 + Layer + VectorDocument
 
 **Files:**
-- Create: `VoidaEngine/Sources/VoidaEngine/Model/Node.swift`
-- Create: `VoidaEngine/Sources/VoidaEngine/Model/Layer.swift`
-- Create: `VoidaEngine/Sources/VoidaEngine/Model/VectorDocument.swift`
-- Test: `VoidaEngine/Tests/VoidaEngineTests/VectorDocumentTests.swift`
+- Create: `VectaEngine/Sources/VectaEngine/Model/Node.swift`
+- Create: `VectaEngine/Sources/VectaEngine/Model/Layer.swift`
+- Create: `VectaEngine/Sources/VectaEngine/Model/VectorDocument.swift`
+- Test: `VectaEngine/Tests/VectaEngineTests/VectorDocumentTests.swift`
 
 - [ ] **Step 1: 실패하는 테스트 작성**
 
@@ -715,7 +715,7 @@ git add -A && git commit -m "feat: Paint·Gradient·Stroke·Style 스타일 모�
 import CoreGraphics
 import Foundation
 import Testing
-@testable import VoidaEngine
+@testable import VectaEngine
 
 private func sampleDocument() -> VectorDocument {
     let rect = PathNode(
@@ -758,10 +758,10 @@ private func sampleDocument() -> VectorDocument {
 
 - [ ] **Step 2: 실패 확인**
 
-Run: `cd VoidaEngine && swift test`
+Run: `cd VectaEngine && swift test`
 Expected: FAIL — `cannot find 'PathNode' in scope`
 
-- [ ] **Step 3: 노드 구현** — `Sources/VoidaEngine/Model/Node.swift`
+- [ ] **Step 3: 노드 구현** — `Sources/VectaEngine/Model/Node.swift`
 
 ```swift
 import CoreGraphics
@@ -859,7 +859,7 @@ public enum Node: Equatable, Codable, Sendable {
 }
 ```
 
-- [ ] **Step 4: Layer 구현** — `Sources/VoidaEngine/Model/Layer.swift`
+- [ ] **Step 4: Layer 구현** — `Sources/VectaEngine/Model/Layer.swift`
 
 ```swift
 public struct Layer: Equatable, Codable, Sendable {
@@ -882,7 +882,7 @@ public struct Layer: Equatable, Codable, Sendable {
 }
 ```
 
-- [ ] **Step 5: VectorDocument 구현** — `Sources/VoidaEngine/Model/VectorDocument.swift`
+- [ ] **Step 5: VectorDocument 구현** — `Sources/VectaEngine/Model/VectorDocument.swift`
 
 ```swift
 import CoreGraphics
@@ -915,13 +915,13 @@ public struct VectorDocument: Equatable, Codable, Sendable {
 
 - [ ] **Step 6: 통과 확인**
 
-Run: `cd VoidaEngine && swift test`
+Run: `cd VectaEngine && swift test`
 Expected: PASS
 
 - [ ] **Step 7: 포맷 후 커밋**
 
 ```bash
-cd VoidaEngine && swift format --in-place --recursive Sources Tests && cd ..
+cd VectaEngine && swift format --in-place --recursive Sources Tests && cd ..
 git add -A && git commit -m "feat: 노드 트리·레이어·VectorDocument 씬그래프 모델 완성"
 ```
 
@@ -930,15 +930,15 @@ git add -A && git commit -m "feat: 노드 트리·레이어·VectorDocument 씬�
 ### Task 7: SceneRenderer (캔버스/PDF 공용 렌더러)
 
 **Files:**
-- Create: `VoidaEngine/Sources/VoidaEngine/Rendering/SceneRenderer.swift`
-- Create: `VoidaEngine/Tests/VoidaEngineTests/TestSupport.swift`
-- Test: `VoidaEngine/Tests/VoidaEngineTests/SceneRendererTests.swift`
+- Create: `VectaEngine/Sources/VectaEngine/Rendering/SceneRenderer.swift`
+- Create: `VectaEngine/Tests/VectaEngineTests/TestSupport.swift`
+- Test: `VectaEngine/Tests/VectaEngineTests/SceneRendererTests.swift`
 
-- [ ] **Step 1: 테스트 지원 헬퍼 작성** — `Tests/VoidaEngineTests/TestSupport.swift`
+- [ ] **Step 1: 테스트 지원 헬퍼 작성** — `Tests/VectaEngineTests/TestSupport.swift`
 
 ```swift
 import CoreGraphics
-@testable import VoidaEngine
+@testable import VectaEngine
 
 /// sRGB premultipliedLast(RGBA8) 비트맵에 모델 좌표(top-left)로 렌더링한다.
 /// CTM 플립 덕분에 "모델 (x, y) = 비트맵 row y" 가 성립한다.
@@ -964,12 +964,12 @@ func pixelColor(x: Int, y: Int, in context: CGContext) -> (
 }
 ```
 
-- [ ] **Step 2: 실패하는 테스트 작성** — `Tests/VoidaEngineTests/SceneRendererTests.swift`
+- [ ] **Step 2: 실패하는 테스트 작성** — `Tests/VectaEngineTests/SceneRendererTests.swift`
 
 ```swift
 import CoreGraphics
 import Testing
-@testable import VoidaEngine
+@testable import VectaEngine
 
 private func documentWithRedRect() -> VectorDocument {
     var document = VectorDocument.empty(size: CGSize(width: 200, height: 200))
@@ -1030,10 +1030,10 @@ private func documentWithRedRect() -> VectorDocument {
 
 - [ ] **Step 3: 실패 확인**
 
-Run: `cd VoidaEngine && swift test`
+Run: `cd VectaEngine && swift test`
 Expected: FAIL — `cannot find 'SceneRenderer' in scope`
 
-- [ ] **Step 4: 구현** — `Sources/VoidaEngine/Rendering/SceneRenderer.swift`
+- [ ] **Step 4: 구현** — `Sources/VectaEngine/Rendering/SceneRenderer.swift`
 
 ```swift
 import CoreGraphics
@@ -1140,13 +1140,13 @@ extension LineJoin {
 
 - [ ] **Step 5: 통과 확인**
 
-Run: `cd VoidaEngine && swift test`
+Run: `cd VectaEngine && swift test`
 Expected: PASS
 
 - [ ] **Step 6: 포맷 후 커밋**
 
 ```bash
-cd VoidaEngine && swift format --in-place --recursive Sources Tests && cd ..
+cd VectaEngine && swift format --in-place --recursive Sources Tests && cd ..
 git add -A && git commit -m "feat: 캔버스·PDF 공용 SceneRenderer 추가"
 ```
 
@@ -1155,10 +1155,10 @@ git add -A && git commit -m "feat: 캔버스·PDF 공용 SceneRenderer 추가"
 ### Task 8: 에러 타입 + NativeScenePayload (JSON 임베드/추출)
 
 **Files:**
-- Create: `VoidaEngine/Sources/VoidaEngine/ImportAI/ImportError.swift`
-- Create: `VoidaEngine/Sources/VoidaEngine/ExportAI/ExportError.swift`
-- Create: `VoidaEngine/Sources/VoidaEngine/ExportAI/NativeScenePayload.swift`
-- Test: `VoidaEngine/Tests/VoidaEngineTests/NativeScenePayloadTests.swift`
+- Create: `VectaEngine/Sources/VectaEngine/ImportAI/ImportError.swift`
+- Create: `VectaEngine/Sources/VectaEngine/ExportAI/ExportError.swift`
+- Create: `VectaEngine/Sources/VectaEngine/ExportAI/NativeScenePayload.swift`
+- Test: `VectaEngine/Tests/VectaEngineTests/NativeScenePayloadTests.swift`
 
 - [ ] **Step 1: 실패하는 테스트 작성**
 
@@ -1166,7 +1166,7 @@ git add -A && git commit -m "feat: 캔버스·PDF 공용 SceneRenderer 추가"
 import CoreGraphics
 import Foundation
 import Testing
-@testable import VoidaEngine
+@testable import VectaEngine
 
 /// startxref와 %%EOF를 가진 최소 형태의 가짜 PDF 꼬리.
 private let fakePDF = Data(
@@ -1191,7 +1191,7 @@ private let fakePDF = Data(
     let document = VectorDocument.empty()
     let embedded = try NativeScenePayload.embed(document, into: fakePDF)
     let text = String(decoding: embedded, as: UTF8.self)
-    let markerIndex = text.range(of: "%VoidaSceneJSON-BEGIN")!.lowerBound
+    let markerIndex = text.range(of: "%VectaSceneJSON-BEGIN")!.lowerBound
     let startxrefIndex = text.range(of: "startxref")!.lowerBound
     #expect(markerIndex < startxrefIndex)
     #expect(text.hasSuffix("%%EOF"))
@@ -1205,9 +1205,9 @@ private let fakePDF = Data(
     let corrupt = Data(
         """
         %PDF-1.4
-        %VoidaSceneJSON-BEGIN
+        %VectaSceneJSON-BEGIN
         %!!!이건 base64가 아님!!!
-        %VoidaSceneJSON-END
+        %VectaSceneJSON-END
         startxref
         9
         %%EOF
@@ -1226,12 +1226,12 @@ private let fakePDF = Data(
 
 - [ ] **Step 2: 실패 확인**
 
-Run: `cd VoidaEngine && swift test`
+Run: `cd VectaEngine && swift test`
 Expected: FAIL — `cannot find 'NativeScenePayload' in scope`
 
 - [ ] **Step 3: 에러 타입 구현**
 
-`Sources/VoidaEngine/ImportAI/ImportError.swift`:
+`Sources/VectaEngine/ImportAI/ImportError.swift`:
 
 ```swift
 import Foundation
@@ -1248,13 +1248,13 @@ public enum ImportError: Error, Equatable, LocalizedError {
         case .noNativeData:
             return "다른 앱에서 만든 .ai 파일 가져오기는 아직 지원하지 않습니다."
         case .corruptNativeData:
-            return "파일에 저장된 Voida 데이터가 손상되었습니다."
+            return "파일에 저장된 Vecta 데이터가 손상되었습니다."
         }
     }
 }
 ```
 
-`Sources/VoidaEngine/ExportAI/ExportError.swift`:
+`Sources/VectaEngine/ExportAI/ExportError.swift`:
 
 ```swift
 import Foundation
@@ -1271,7 +1271,7 @@ public enum ExportError: Error, Equatable, LocalizedError {
 }
 ```
 
-- [ ] **Step 4: NativeScenePayload 구현** — `Sources/VoidaEngine/ExportAI/NativeScenePayload.swift`
+- [ ] **Step 4: NativeScenePayload 구현** — `Sources/VectaEngine/ExportAI/NativeScenePayload.swift`
 
 ```swift
 import Foundation
@@ -1280,8 +1280,8 @@ import Foundation
 /// 삽입/추출한다. 주석은 xref 오프셋에 영향을 주지 않으므로 파일은 유효한
 /// PDF로 유지된다 (스펙 6절, 2026-06-11 스파이크로 검증).
 public enum NativeScenePayload {
-    static let beginMarker = "%VoidaSceneJSON-BEGIN"
-    static let endMarker = "%VoidaSceneJSON-END"
+    static let beginMarker = "%VectaSceneJSON-BEGIN"
+    static let endMarker = "%VectaSceneJSON-END"
 
     public static func embed(_ document: VectorDocument, into pdfData: Data) throws -> Data {
         guard
@@ -1323,13 +1323,13 @@ public enum NativeScenePayload {
 
 - [ ] **Step 5: 통과 확인**
 
-Run: `cd VoidaEngine && swift test`
+Run: `cd VectaEngine && swift test`
 Expected: PASS
 
 - [ ] **Step 6: 포맷 후 커밋**
 
 ```bash
-cd VoidaEngine && swift format --in-place --recursive Sources Tests && cd ..
+cd VectaEngine && swift format --in-place --recursive Sources Tests && cd ..
 git add -A && git commit -m "feat: 씬그래프 JSON을 PDF에 임베드하는 NativeScenePayload 추가"
 ```
 
@@ -1338,8 +1338,8 @@ git add -A && git commit -m "feat: 씬그래프 JSON을 PDF에 임베드하는 N
 ### Task 9: AIFileWriter
 
 **Files:**
-- Create: `VoidaEngine/Sources/VoidaEngine/ExportAI/AIFileWriter.swift`
-- Test: `VoidaEngine/Tests/VoidaEngineTests/AIFileWriterTests.swift`
+- Create: `VectaEngine/Sources/VectaEngine/ExportAI/AIFileWriter.swift`
+- Test: `VectaEngine/Tests/VectaEngineTests/AIFileWriterTests.swift`
 
 - [ ] **Step 1: 실패하는 테스트 작성**
 
@@ -1347,7 +1347,7 @@ git add -A && git commit -m "feat: 씬그래프 JSON을 PDF에 임베드하는 N
 import CoreGraphics
 import Foundation
 import Testing
-@testable import VoidaEngine
+@testable import VectaEngine
 
 private func documentWithRedRect() -> VectorDocument {
     var document = VectorDocument.empty(size: CGSize(width: 200, height: 200))
@@ -1396,10 +1396,10 @@ private func documentWithRedRect() -> VectorDocument {
 
 - [ ] **Step 2: 실패 확인**
 
-Run: `cd VoidaEngine && swift test`
+Run: `cd VectaEngine && swift test`
 Expected: FAIL — `cannot find 'AIFileWriter' in scope`
 
-- [ ] **Step 3: 구현** — `Sources/VoidaEngine/ExportAI/AIFileWriter.swift`
+- [ ] **Step 3: 구현** — `Sources/VectaEngine/ExportAI/AIFileWriter.swift`
 
 ```swift
 import CoreGraphics
@@ -1436,13 +1436,13 @@ public enum AIFileWriter {
 
 - [ ] **Step 4: 통과 확인**
 
-Run: `cd VoidaEngine && swift test`
+Run: `cd VectaEngine && swift test`
 Expected: PASS
 
 - [ ] **Step 5: 포맷 후 커밋**
 
 ```bash
-cd VoidaEngine && swift format --in-place --recursive Sources Tests && cd ..
+cd VectaEngine && swift format --in-place --recursive Sources Tests && cd ..
 git add -A && git commit -m "feat: 씬그래프를 .ai(PDF)로 저장하는 AIFileWriter 추가"
 ```
 
@@ -1451,8 +1451,8 @@ git add -A && git commit -m "feat: 씬그래프를 .ai(PDF)로 저장하는 AIFi
 ### Task 10: AIFileReader
 
 **Files:**
-- Create: `VoidaEngine/Sources/VoidaEngine/ImportAI/AIFileReader.swift`
-- Test: `VoidaEngine/Tests/VoidaEngineTests/AIFileReaderTests.swift`
+- Create: `VectaEngine/Sources/VectaEngine/ImportAI/AIFileReader.swift`
+- Test: `VectaEngine/Tests/VectaEngineTests/AIFileReaderTests.swift`
 
 - [ ] **Step 1: 실패하는 테스트 작성**
 
@@ -1460,7 +1460,7 @@ git add -A && git commit -m "feat: 씬그래프를 .ai(PDF)로 저장하는 AIFi
 import CoreGraphics
 import Foundation
 import Testing
-@testable import VoidaEngine
+@testable import VectaEngine
 
 @Test func writerOutputRoundTripsThroughReader() throws {
     var document = VectorDocument.empty(size: CGSize(width: 300, height: 200))
@@ -1499,16 +1499,16 @@ import Testing
 
 - [ ] **Step 2: 실패 확인**
 
-Run: `cd VoidaEngine && swift test`
+Run: `cd VectaEngine && swift test`
 Expected: FAIL — `cannot find 'AIFileReader' in scope`
 
-- [ ] **Step 3: 구현** — `Sources/VoidaEngine/ImportAI/AIFileReader.swift`
+- [ ] **Step 3: 구현** — `Sources/VectaEngine/ImportAI/AIFileReader.swift`
 
 ```swift
 import Foundation
 
 public enum AIFileReader {
-    /// M1: Voida가 저장한 파일(임베드 JSON)만 연다.
+    /// M1: Vecta가 저장한 파일(임베드 JSON)만 연다.
     /// M4에서 noNativeData 경로가 콘텐츠 스트림 파싱 폴백으로 대체된다.
     public static func document(from data: Data) throws -> VectorDocument {
         guard data.starts(with: Data("%PDF-".utf8)) else {
@@ -1524,13 +1524,13 @@ public enum AIFileReader {
 
 - [ ] **Step 4: 통과 확인**
 
-Run: `cd VoidaEngine && swift test`
+Run: `cd VectaEngine && swift test`
 Expected: PASS
 
 - [ ] **Step 5: 포맷 후 커밋**
 
 ```bash
-cd VoidaEngine && swift format --in-place --recursive Sources Tests && cd ..
+cd VectaEngine && swift format --in-place --recursive Sources Tests && cd ..
 git add -A && git commit -m "feat: .ai 파일을 씬그래프로 복원하는 AIFileReader 추가"
 ```
 
@@ -1539,8 +1539,8 @@ git add -A && git commit -m "feat: .ai 파일을 씬그래프로 복원하는 AI
 ### Task 11: DocumentStore (변경 단일 경로 + 스냅샷 undo)
 
 **Files:**
-- Create: `VoidaEngine/Sources/VoidaEngine/State/DocumentStore.swift`
-- Test: `VoidaEngine/Tests/VoidaEngineTests/DocumentStoreTests.swift`
+- Create: `VectaEngine/Sources/VectaEngine/State/DocumentStore.swift`
+- Test: `VectaEngine/Tests/VectaEngineTests/DocumentStoreTests.swift`
 
 - [ ] **Step 1: 실패하는 테스트 작성**
 
@@ -1548,7 +1548,7 @@ git add -A && git commit -m "feat: .ai 파일을 씬그래프로 복원하는 AI
 import CoreGraphics
 import Foundation
 import Testing
-@testable import VoidaEngine
+@testable import VectaEngine
 
 private func makeRectNode() -> Node {
     .path(
@@ -1595,10 +1595,10 @@ private func makeRectNode() -> Node {
 
 - [ ] **Step 2: 실패 확인**
 
-Run: `cd VoidaEngine && swift test`
+Run: `cd VectaEngine && swift test`
 Expected: FAIL — `cannot find 'DocumentStore' in scope`
 
-- [ ] **Step 3: 구현** — `Sources/VoidaEngine/State/DocumentStore.swift`
+- [ ] **Step 3: 구현** — `Sources/VectaEngine/State/DocumentStore.swift`
 
 ```swift
 import Combine
@@ -1648,13 +1648,13 @@ public final class DocumentStore: ObservableObject {
 
 - [ ] **Step 4: 통과 확인**
 
-Run: `cd VoidaEngine && swift test`
+Run: `cd VectaEngine && swift test`
 Expected: PASS (전체 테스트 — 이 시점에 엔진 테스트 전부 그린이어야 함)
 
 - [ ] **Step 5: 포맷 후 커밋**
 
 ```bash
-cd VoidaEngine && swift format --in-place --recursive Sources Tests && cd ..
+cd VectaEngine && swift format --in-place --recursive Sources Tests && cd ..
 git add -A && git commit -m "feat: 스냅샷 undo를 갖춘 DocumentStore 추가"
 ```
 
@@ -1665,39 +1665,39 @@ git add -A && git commit -m "feat: 스냅샷 undo를 갖춘 DocumentStore 추가
 이 태스크는 UI 셸이라 단위 테스트 대신 **빌드 성공 + 실행 스모크**로 검증한다.
 
 **Files:**
-- Create: `VoidaApp/project.yml`
-- Create: `VoidaApp/Sources/main.swift`
-- Create: `VoidaApp/Sources/AppDelegate.swift`
-- Create: `VoidaApp/Sources/MainMenuBuilder.swift`
-- Create: `VoidaApp/Sources/Document/VoidaDocument.swift` (이 단계에선 빈 문서)
+- Create: `VectaApp/project.yml`
+- Create: `VectaApp/Sources/main.swift`
+- Create: `VectaApp/Sources/AppDelegate.swift`
+- Create: `VectaApp/Sources/MainMenuBuilder.swift`
+- Create: `VectaApp/Sources/Document/VectaDocument.swift` (이 단계에선 빈 문서)
 
 - [ ] **Step 1: project.yml 작성**
 
 ```yaml
-name: Voida
+name: Vecta
 options:
-  bundleIdPrefix: dev.voida
+  bundleIdPrefix: dev.vecta
   deploymentTarget:
     macOS: "14.0"
 packages:
-  VoidaEngine:
-    path: ../VoidaEngine
+  VectaEngine:
+    path: ../VectaEngine
 targets:
-  Voida:
+  Vecta:
     type: application
     platform: macOS
     sources: [Sources]
     dependencies:
-      - package: VoidaEngine
+      - package: VectaEngine
     settings:
       base:
         SWIFT_VERSION: "5.0"
-        PRODUCT_BUNDLE_IDENTIFIER: dev.voida.app
+        PRODUCT_BUNDLE_IDENTIFIER: dev.vecta.app
         CODE_SIGN_IDENTITY: "-"
     info:
       path: Sources/Info.plist
       properties:
-        CFBundleName: Voida
+        CFBundleName: Vecta
         NSPrincipalClass: NSApplication
         LSMinimumSystemVersion: "14.0"
         CFBundleDocumentTypes:
@@ -1705,7 +1705,7 @@ targets:
             CFBundleTypeRole: Editor
             LSItemContentTypes: [com.adobe.illustrator]
             LSHandlerRank: Alternate
-            NSDocumentClass: Voida.VoidaDocument
+            NSDocumentClass: Vecta.VectaDocument
         UTImportedTypeDeclarations:
           - UTTypeIdentifier: com.adobe.illustrator
             UTTypeDescription: Adobe Illustrator Document
@@ -1713,17 +1713,17 @@ targets:
             UTTypeTagSpecification:
               public.filename-extension: [ai]
 schemes:
-  Voida:
+  Vecta:
     build:
       targets:
-        Voida: all
+        Vecta: all
     run:
       config: Debug
 ```
 
 - [ ] **Step 2: 앱 진입점 작성**
 
-`VoidaApp/Sources/main.swift`:
+`VectaApp/Sources/main.swift`:
 
 ```swift
 import AppKit
@@ -1733,7 +1733,7 @@ NSApplication.shared.delegate = delegate
 _ = NSApplicationMain(CommandLine.argc, CommandLine.unsafeArgv)
 ```
 
-`VoidaApp/Sources/AppDelegate.swift`:
+`VectaApp/Sources/AppDelegate.swift`:
 
 ```swift
 import AppKit
@@ -1745,7 +1745,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 }
 ```
 
-- [ ] **Step 3: 메뉴 빌더 작성** — `VoidaApp/Sources/MainMenuBuilder.swift`
+- [ ] **Step 3: 메뉴 빌더 작성** — `VectaApp/Sources/MainMenuBuilder.swift`
 
 ```swift
 import AppKit
@@ -1766,14 +1766,14 @@ enum MainMenuBuilder {
     }
 
     private static func appMenu() -> NSMenu {
-        let menu = NSMenu(title: "Voida")
+        let menu = NSMenu(title: "Vecta")
         menu.addItem(
-            withTitle: "Voida에 관하여",
+            withTitle: "Vecta에 관하여",
             action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)),
             keyEquivalent: "")
         menu.addItem(.separator())
         menu.addItem(
-            withTitle: "Voida 종료",
+            withTitle: "Vecta 종료",
             action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         return menu
     }
@@ -1812,13 +1812,13 @@ enum MainMenuBuilder {
 }
 ```
 
-- [ ] **Step 4: 빈 NSDocument 작성** — `VoidaApp/Sources/Document/VoidaDocument.swift`
+- [ ] **Step 4: 빈 NSDocument 작성** — `VectaApp/Sources/Document/VectaDocument.swift`
 
 ```swift
 import AppKit
-import VoidaEngine
+import VectaEngine
 
-final class VoidaDocument: NSDocument {
+final class VectaDocument: NSDocument {
     private(set) lazy var store = DocumentStore(document: .empty()) {
         [weak self] in self?.undoManager
     }
@@ -1842,32 +1842,32 @@ final class VoidaDocument: NSDocument {
 
 Run:
 ```bash
-cd VoidaApp && xcodegen generate && \
-xcodebuild -project Voida.xcodeproj -scheme Voida -configuration Debug \
+cd VectaApp && xcodegen generate && \
+xcodebuild -project Vecta.xcodeproj -scheme Vecta -configuration Debug \
   -derivedDataPath build build
 ```
 Expected: `** BUILD SUCCEEDED **`
 
 - [ ] **Step 6: 실행 스모크 (수동)**
 
-Run: `open VoidaApp/build/Build/Products/Debug/Voida.app`
+Run: `open VectaApp/build/Build/Products/Debug/Vecta.app`
 확인: 앱 실행 → 빈 윈도우가 뜨고("제목 없음") 메뉴에 파일/편집이 보인다. ⌘Q로 종료.
 
 - [ ] **Step 7: 포맷 후 커밋**
 
 ```bash
-swift format --in-place --recursive VoidaApp/Sources
+swift format --in-place --recursive VectaApp/Sources
 git add -A && git commit -m "feat: XcodeGen 기반 문서형 앱 골격 추가"
 ```
 
 ---
 
-### Task 13: VoidaDocument 파일 I/O 연결
+### Task 13: VectaDocument 파일 I/O 연결
 
 **Files:**
-- Modify: `VoidaApp/Sources/Document/VoidaDocument.swift`
+- Modify: `VectaApp/Sources/Document/VectaDocument.swift`
 
-- [ ] **Step 1: 읽기/쓰기 오버라이드 추가** — VoidaDocument 클래스에 추가
+- [ ] **Step 1: 읽기/쓰기 오버라이드 추가** — VectaDocument 클래스에 추가
 
 ```swift
     override func data(ofType typeName: String) throws -> Data {
@@ -1887,14 +1887,14 @@ git add -A && git commit -m "feat: XcodeGen 기반 문서형 앱 골격 추가"
 
 Run:
 ```bash
-cd VoidaApp && xcodebuild -project Voida.xcodeproj -scheme Voida \
+cd VectaApp && xcodebuild -project Vecta.xcodeproj -scheme Vecta \
   -configuration Debug -derivedDataPath build build
 ```
 Expected: `** BUILD SUCCEEDED **`
 
 - [ ] **Step 3: 수동 스모크**
 
-`open VoidaApp/build/Build/Products/Debug/Voida.app`
+`open VectaApp/build/Build/Products/Debug/Vecta.app`
 확인: 빈 문서를 ⌘S → `~/Desktop/m1-empty.ai` 저장 → ⌘W → ⌘O로 다시 열기 →
 에러 없이 빈 문서가 열린다. `open -a Preview ~/Desktop/m1-empty.ai`로
 미리보기에서도 흰 페이지가 열린다.
@@ -1902,7 +1902,7 @@ Expected: `** BUILD SUCCEEDED **`
 - [ ] **Step 4: 포맷 후 커밋**
 
 ```bash
-swift format --in-place --recursive VoidaApp/Sources
+swift format --in-place --recursive VectaApp/Sources
 git add -A && git commit -m "feat: NSDocument에 .ai 읽기·쓰기 연결"
 ```
 
@@ -1911,12 +1911,12 @@ git add -A && git commit -m "feat: NSDocument에 .ai 읽기·쓰기 연결"
 ### Task 14: 캔버스 + 도구 상태 + 툴바
 
 **Files:**
-- Create: `VoidaApp/Sources/Canvas/ToolState.swift`
-- Create: `VoidaApp/Sources/Canvas/CanvasView.swift`
-- Create: `VoidaApp/Sources/Panels/ToolbarView.swift`
-- Modify: `VoidaApp/Sources/Document/VoidaDocument.swift` (윈도우 콘텐츠 구성)
+- Create: `VectaApp/Sources/Canvas/ToolState.swift`
+- Create: `VectaApp/Sources/Canvas/CanvasView.swift`
+- Create: `VectaApp/Sources/Panels/ToolbarView.swift`
+- Modify: `VectaApp/Sources/Document/VectaDocument.swift` (윈도우 콘텐츠 구성)
 
-- [ ] **Step 1: ToolState 작성** — `VoidaApp/Sources/Canvas/ToolState.swift`
+- [ ] **Step 1: ToolState 작성** — `VectaApp/Sources/Canvas/ToolState.swift`
 
 ```swift
 import Foundation
@@ -1945,12 +1945,12 @@ final class ToolState: ObservableObject {
 }
 ```
 
-- [ ] **Step 2: CanvasView 작성** — `VoidaApp/Sources/Canvas/CanvasView.swift`
+- [ ] **Step 2: CanvasView 작성** — `VectaApp/Sources/Canvas/CanvasView.swift`
 
 ```swift
 import AppKit
 import Combine
-import VoidaEngine
+import VectaEngine
 
 /// 아트보드 크기와 동일한 frame을 갖는 문서 뷰. 모델 좌표 = 뷰 좌표(flipped).
 final class CanvasView: NSView {
@@ -2039,7 +2039,7 @@ final class CanvasView: NSView {
 }
 ```
 
-- [ ] **Step 3: ToolbarView 작성** — `VoidaApp/Sources/Panels/ToolbarView.swift`
+- [ ] **Step 3: ToolbarView 작성** — `VectaApp/Sources/Panels/ToolbarView.swift`
 
 ```swift
 import SwiftUI
@@ -2073,7 +2073,7 @@ struct ToolbarView: View {
 }
 ```
 
-- [ ] **Step 4: 윈도우 콘텐츠 구성** — VoidaDocument의 `makeWindowControllers()`를 교체
+- [ ] **Step 4: 윈도우 콘텐츠 구성** — VectaDocument의 `makeWindowControllers()`를 교체
 
 파일 상단에 `import SwiftUI` 추가 (NSHostingView 사용).
 
@@ -2113,21 +2113,21 @@ struct ToolbarView: View {
 
 Run:
 ```bash
-cd VoidaApp && xcodebuild -project Voida.xcodeproj -scheme Voida \
+cd VectaApp && xcodebuild -project Vecta.xcodeproj -scheme Vecta \
   -configuration Debug -derivedDataPath build build
 ```
 Expected: `** BUILD SUCCEEDED **`
 
 - [ ] **Step 6: 수동 스모크**
 
-`open VoidaApp/build/Build/Products/Debug/Voida.app`
+`open VectaApp/build/Build/Products/Debug/Vecta.app`
 확인: 드래그로 사각형이 그려진다. 툴바에서 타원 선택 후 타원도 그려진다.
 ⌘Z로 사라지고 ⇧⌘Z로 돌아온다.
 
 - [ ] **Step 7: 포맷 후 커밋**
 
 ```bash
-swift format --in-place --recursive VoidaApp/Sources
+swift format --in-place --recursive VectaApp/Sources
 git add -A && git commit -m "feat: 캔버스 드래그 도형 그리기와 SwiftUI 툴바 추가"
 ```
 
@@ -2140,12 +2140,12 @@ git add -A && git commit -m "feat: 캔버스 드래그 도형 그리기와 Swift
 
 - [ ] **Step 1: 엔진 전체 회귀**
 
-Run: `cd VoidaEngine && swift build && swift test`
+Run: `cd VectaEngine && swift build && swift test`
 Expected: 전체 PASS
 
 - [ ] **Step 2: 통합 수동 검증 체크리스트**
 
-앱 실행 (`open VoidaApp/build/Build/Products/Debug/Voida.app`) 후 순서대로:
+앱 실행 (`open VectaApp/build/Build/Products/Debug/Vecta.app`) 후 순서대로:
 
 1. 새 문서가 자동으로 열린다 (제목 없음)
 2. 사각형 3개 + 타원 2개를 드래그로 그린다
@@ -2162,15 +2162,15 @@ Expected: 전체 PASS
 - [ ] **Step 3: README 작성** — `README.md`
 
 ```markdown
-# Voida
+# Vecta
 
 macOS 네이티브 벡터 그래픽 에디터. Adobe Illustrator 없이 .ai(PDF 호환)
 파일을 만들고, 열고, 편집하는 것이 목표다.
 
 ## 구조
 
-- `VoidaEngine/` — 모델·렌더러·.ai 입출력·undo 스토어 (SPM, UI 의존성 없음)
-- `VoidaApp/` — AppKit 캔버스 + SwiftUI 패널 셸 (XcodeGen)
+- `VectaEngine/` — 모델·렌더러·.ai 입출력·undo 스토어 (SPM, UI 의존성 없음)
+- `VectaApp/` — AppKit 캔버스 + SwiftUI 패널 셸 (XcodeGen)
 - `docs/superpowers/specs/` — 설계 스펙
 - `docs/superpowers/plans/` — 마일스톤별 구현 계획
 
@@ -2178,13 +2178,13 @@ macOS 네이티브 벡터 그래픽 에디터. Adobe Illustrator 없이 .ai(PDF 
 
 ```bash
 # 엔진 테스트
-cd VoidaEngine && swift test
+cd VectaEngine && swift test
 
 # 앱 빌드 (XcodeGen 필요: brew install xcodegen)
-cd VoidaApp && xcodegen generate && \
-  xcodebuild -project Voida.xcodeproj -scheme Voida \
+cd VectaApp && xcodegen generate && \
+  xcodebuild -project Vecta.xcodeproj -scheme Vecta \
     -configuration Debug -derivedDataPath build build
-open build/Build/Products/Debug/Voida.app
+open build/Build/Products/Debug/Vecta.app
 ```
 
 ## 현재 상태

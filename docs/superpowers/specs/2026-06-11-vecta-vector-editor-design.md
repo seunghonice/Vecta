@@ -1,4 +1,4 @@
-# Voida — macOS 벡터 그래픽 에디터 설계
+# Vecta — macOS 벡터 그래픽 에디터 설계
 
 - 날짜: 2026-06-11
 - 상태: 승인됨
@@ -55,25 +55,25 @@ Illustrator를 보유하지 않는다 — 즉 "Illustrator 없이 .ai 파일을 
 AppKit 캔버스 + SwiftUI 패널 하이브리드. 엔진은 SPM 패키지로 분리.
 
 ```
-voida.dev/
-├── VoidaEngine/            # SPM 패키지 — AppKit 의존성 없음, swift test 가능
-│   ├── Sources/VoidaEngine/
+vecta/
+├── VectaEngine/            # SPM 패키지 — AppKit 의존성 없음, swift test 가능
+│   ├── Sources/VectaEngine/
 │   │   ├── Model/          # 씬그래프: VectorDocument, Layer, Node…
 │   │   ├── Geometry/       # BezierPath, 변환, 바운드, 히트테스트, 패스파인더
 │   │   ├── ImportAI/       # CGPDFScanner 기반 .ai/PDF → 씬그래프 파서
 │   │   └── ExportAI/       # 씬그래프 → PDF(.ai) 작성기 + 네이티브 JSON 임베드
-│   └── Tests/VoidaEngineTests/
-└── VoidaApp/               # Xcode 앱 타깃 (macOS 14+)
+│   └── Tests/VectaEngineTests/
+└── VectaApp/               # Xcode 앱 타깃 (macOS 14+)
     ├── Document/           # NSDocument 서브클래스 (읽기/쓰기/undo 연결)
     ├── Canvas/             # CanvasView(NSView), Tool 프로토콜과 구현들
     └── Panels/             # SwiftUI: 툴바, 인스펙터, 레이어 패널
 ```
 
-- VoidaEngine은 CoreGraphics/CoreText/ImageIO/PDFKit까지만 의존 (헤드리스
+- VectaEngine은 CoreGraphics/CoreText/ImageIO/PDFKit까지만 의존 (헤드리스
   테스트 가능). AppKit/SwiftUI 의존 금지.
 - 의존성은 생성자 주입. 서드파티 패키지 없음.
 
-## 4. 문서 모델 (VoidaEngine/Model)
+## 4. 문서 모델 (VectaEngine/Model)
 
 값 타입 씬그래프. 전부 `struct`/`enum`, `Codable`, `Equatable`.
 
@@ -160,9 +160,9 @@ enum PathSegment  { case move(to:), line(to:), curve(to:control1:control2:) }
    PDF 주석 블록으로 삽입한다.
 
    ```
-   %VoidaSceneJSON-BEGIN
+   %VectaSceneJSON-BEGIN
    %<base64(JSON)>
-   %VoidaSceneJSON-END
+   %VectaSceneJSON-END
    ```
 
    - 주석 블록은 xref 오프셋에 영향을 주지 않아 파일이 유효한 PDF로 유지됨
@@ -174,7 +174,7 @@ enum PathSegment  { case move(to:), line(to:), curve(to:control1:control2:) }
      메타데이터 오염), 숨김 주석(~10배 부풀림).
 4. 문서 타입: `.ai`(`com.adobe.illustrator`) 읽기/쓰기, `.pdf` 읽기.
 
-## 7. 캔버스와 도구 (VoidaApp)
+## 7. 캔버스와 도구 (VectaApp)
 
 ### 캔버스
 
@@ -263,7 +263,7 @@ protocol Tool {
 
 ## 11. 테스트 전략
 
-TDD (Red → Green → Refactor). 로직 대부분을 VoidaEngine에 두어 헤드리스로
+TDD (Red → Green → Refactor). 로직 대부분을 VectaEngine에 두어 헤드리스로
 테스트한다.
 
 - **Model**: Codable 라운드트립, Equatable, 노드 트리 조작(삽입/삭제/이동)
