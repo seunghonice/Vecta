@@ -91,3 +91,27 @@ private func makeStore(
   }
   #expect(captured == CGRect(x: 10, y: 20, width: 80, height: 40))
 }
+
+@Test @MainActor func transientStyleUpdateCommitsAsSingleUndoStep() {
+  let undoManager = UndoManager()
+  let node = rect()
+  let store = makeStore(nodes: [.path(node)], undoManager: undoManager)
+  store.select([node.id])
+  store.beginTransient()
+  store.updateSelectionStylesTransient { style, _ in style.opacity = 0.7 }
+  store.updateSelectionStylesTransient { style, _ in style.opacity = 0.4 }
+  #expect(!undoManager.canUndo)  // 드래그 중에는 undo 미등록
+  store.commitTransient(actionName: "불투명도")
+  #expect(store.selectionPathStyle?.opacity == 0.4)
+  undoManager.undo()
+  #expect(store.selectionPathStyle?.opacity == 1)
+  #expect(!undoManager.canUndo)
+}
+
+@Test @MainActor func transientStyleUpdateWithoutBeginIsSilentNoOp() {
+  let node = rect()
+  let store = makeStore(nodes: [.path(node)], undoManager: nil)
+  store.select([node.id])
+  store.updateSelectionStylesTransient { style, _ in style.opacity = 0.5 }
+  #expect(store.selectionPathStyle?.opacity == 1)
+}
