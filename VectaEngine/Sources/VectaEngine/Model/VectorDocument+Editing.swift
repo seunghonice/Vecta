@@ -99,3 +99,62 @@ extension VectorDocument {
     }
   }
 }
+
+extension VectorDocument {
+  /// ids에 해당하는 패스 노드를 변경한다. 그룹이 매치되면 그 안의 모든 패스
+  /// 자손에 적용된다 (Illustrator의 그룹 스타일 편집 의미).
+  public mutating func updatePathNodes(ids: Set<NodeID>, _ change: (inout PathNode) -> Void) {
+    for layerIndex in layers.indices {
+      layers[layerIndex].nodes = layers[layerIndex].nodes.map {
+        updatingPathNodes($0, ids: ids, isAncestorMatched: false, change)
+      }
+    }
+  }
+
+  private func updatingPathNodes(
+    _ node: Node, ids: Set<NodeID>, isAncestorMatched: Bool,
+    _ change: (inout PathNode) -> Void
+  ) -> Node {
+    let matched = isAncestorMatched || ids.contains(node.id)
+    switch node {
+    case .path(var pathNode):
+      if matched { change(&pathNode) }
+      return .path(pathNode)
+    case .group(var group):
+      group.children = group.children.map {
+        updatingPathNodes($0, ids: ids, isAncestorMatched: matched, change)
+      }
+      return .group(group)
+    case .text, .image:
+      return node
+    }
+  }
+
+  /// ids 중 최전면(z-순서 맨 위) 패스 노드 — 그룹이면 그 안의 최전면 패스.
+  /// 인스펙터의 대표 스타일 표시용.
+  public func frontmostPathNode(in ids: Set<NodeID>) -> PathNode? {
+    var result: PathNode?
+    for layer in layers {
+      for node in layer.nodes {
+        collectFrontmostPath(node, ids: ids, isAncestorMatched: false, into: &result)
+      }
+    }
+    return result
+  }
+
+  private func collectFrontmostPath(
+    _ node: Node, ids: Set<NodeID>, isAncestorMatched: Bool, into result: inout PathNode?
+  ) {
+    let matched = isAncestorMatched || ids.contains(node.id)
+    switch node {
+    case .path(let pathNode):
+      if matched { result = pathNode }
+    case .group(let group):
+      for child in group.children {
+        collectFrontmostPath(child, ids: ids, isAncestorMatched: matched, into: &result)
+      }
+    case .text, .image:
+      break
+    }
+  }
+}
