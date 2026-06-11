@@ -9,6 +9,8 @@ public protocol CanvasTool: AnyObject {
   func mouseUp(_ event: CanvasEvent, context: ToolContext)
   /// 처리했으면 true (미처리 키는 캔버스가 다음 응답자로 넘긴다).
   func keyDown(_ key: CanvasKey, context: ToolContext) -> Bool
+  /// 버튼 누르지 않은 이동 (펜 러버밴드 등). 기본 구현은 no-op.
+  func mouseMoved(_ event: CanvasEvent, context: ToolContext)
   /// 모델 좌표 컨텍스트에 오버레이를 그린다. scale은 화면 확대 배율 —
   /// 핸들 등 화면 고정 크기 요소는 (상수 ÷ scale)로 그린다.
   func drawOverlay(in cgContext: CGContext, scale: CGFloat, context: ToolContext)
@@ -16,6 +18,7 @@ public protocol CanvasTool: AnyObject {
 
 extension CanvasTool {
   public func keyDown(_ key: CanvasKey, context: ToolContext) -> Bool { false }
+  public func mouseMoved(_ event: CanvasEvent, context: ToolContext) {}
   public func drawOverlay(in cgContext: CGContext, scale: CGFloat, context: ToolContext) {}
 }
 
