@@ -1,12 +1,12 @@
-# Voida
+# Vecta
 
 macOS 네이티브 벡터 그래픽 에디터. Adobe Illustrator 없이 .ai(PDF 호환)
 파일을 만들고, 열고, 편집하는 것이 목표다.
 
 ## 구조
 
-- `VoidaEngine/` — 모델·렌더러·.ai 입출력·undo 스토어 (SPM, UI 의존성 없음)
-- `VoidaApp/` — AppKit 캔버스 + SwiftUI 패널 셸 (XcodeGen)
+- `VectaEngine/` — 모델·렌더러·.ai 입출력·undo 스토어 (SPM, UI 의존성 없음)
+- `VectaApp/` — AppKit 캔버스 + SwiftUI 패널 셸 (XcodeGen)
 - `docs/superpowers/specs/` — 설계 스펙
 - `docs/superpowers/plans/` — 마일스톤별 구현 계획
 
@@ -14,13 +14,13 @@ macOS 네이티브 벡터 그래픽 에디터. Adobe Illustrator 없이 .ai(PDF 
 
 ```bash
 # 엔진 테스트
-cd VoidaEngine && swift test
+cd VectaEngine && swift test
 
 # 앱 빌드 (XcodeGen 필요: brew install xcodegen)
-cd VoidaApp && xcodegen generate && \
-  xcodebuild -project Voida.xcodeproj -scheme Voida \
+cd VectaApp && xcodegen generate && \
+  xcodebuild -project Vecta.xcodeproj -scheme Vecta \
     -configuration Debug -derivedDataPath build build
-open build/Build/Products/Debug/Voida.app
+open build/Build/Products/Debug/Vecta.app
 ```
 
 ## 현재 상태
