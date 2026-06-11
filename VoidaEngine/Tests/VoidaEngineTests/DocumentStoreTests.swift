@@ -11,13 +11,13 @@ private func makeRectNode() -> Node {
       style: .defaultShape))
 }
 
-@Test func applyMutatesDocument() {
+@Test @MainActor func applyMutatesDocument() {
   let store = DocumentStore(document: .empty())
   store.apply(actionName: "도형 추가") { $0.layers[0].nodes.append(makeRectNode()) }
   #expect(store.document.layers[0].nodes.count == 1)
 }
 
-@Test func undoRestoresPreviousDocumentAndRedoReapplies() {
+@Test @MainActor func undoRestoresPreviousDocumentAndRedoReapplies() {
   let undoManager = UndoManager()
   let store = DocumentStore(document: .empty()) { undoManager }
   store.apply(actionName: "도형 추가") { $0.layers[0].nodes.append(makeRectNode()) }
@@ -29,14 +29,14 @@ private func makeRectNode() -> Node {
   #expect(store.document.layers[0].nodes.count == 1)
 }
 
-@Test func noOpChangeRegistersNoUndo() {
+@Test @MainActor func noOpChangeRegistersNoUndo() {
   let undoManager = UndoManager()
   let store = DocumentStore(document: .empty()) { undoManager }
   store.apply(actionName: "아무것도 안 함") { _ in }
   #expect(!undoManager.canUndo)
 }
 
-@Test func loadReplacesDocumentAndClearsUndoStack() {
+@Test @MainActor func loadReplacesDocumentAndClearsUndoStack() {
   let undoManager = UndoManager()
   let store = DocumentStore(document: .empty()) { undoManager }
   store.apply(actionName: "도형 추가") { $0.layers[0].nodes.append(makeRectNode()) }
@@ -44,4 +44,41 @@ private func makeRectNode() -> Node {
   store.load(replacement)
   #expect(store.document == replacement)
   #expect(!undoManager.canUndo)
+}
+
+@Test @MainActor func newApplyAfterUndoInvalidatesRedoStack() {
+  let undoManager = UndoManager()
+  let store = DocumentStore(document: .empty()) { undoManager }
+  store.apply(actionName: "도형 추가") { $0.layers[0].nodes.append(makeRectNode()) }
+  undoManager.undo()
+  #expect(undoManager.canRedo)
+  store.apply(actionName: "다른 도형") { $0.layers[0].nodes.append(makeRectNode()) }
+  #expect(!undoManager.canRedo)
+}
+
+@Test @MainActor func multipleAppliesEachUndoIndependently() {
+  let undoManager = UndoManager()
+  // 런루프 없는 테스트 환경에서 apply마다 독립 그룹을 명시적으로 만든다.
+  undoManager.groupsByEvent = false
+  let store = DocumentStore(document: .empty()) { undoManager }
+  undoManager.beginUndoGrouping()
+  store.apply(actionName: "도형1 추가") { $0.layers[0].nodes.append(makeRectNode()) }
+  undoManager.endUndoGrouping()
+  undoManager.beginUndoGrouping()
+  store.apply(actionName: "도형2 추가") { $0.layers[0].nodes.append(makeRectNode()) }
+  undoManager.endUndoGrouping()
+
+  undoManager.undo()
+  #expect(store.document.layers[0].nodes.count == 1)
+  undoManager.undo()
+  #expect(store.document.layers[0].nodes.isEmpty)
+}
+
+@Test @MainActor func actionNameAppearsInUndoMenuTitle() {
+  let undoManager = UndoManager()
+  let store = DocumentStore(document: .empty()) { undoManager }
+  store.apply(actionName: "도형 추가") { $0.layers[0].nodes.append(makeRectNode()) }
+  #expect(undoManager.undoActionName == "도형 추가")
+  undoManager.undo()
+  #expect(undoManager.redoActionName == "도형 추가")
 }
