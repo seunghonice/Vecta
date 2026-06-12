@@ -39,3 +39,17 @@ import Testing
   #expect(ImportError.encryptedPDF.errorDescription?.isEmpty == false)
   #expect(ImportError.unreadablePDF.errorDescription?.isEmpty == false)
 }
+
+@Test func payloadExactlyAtCapIsNotRejectedForSize() {
+  // 정확히 상한 == 통과 (<= 경계 고정). 내용이 유효 JSON이 아니므로
+  // corruptNativeData가 나야 하며, payloadTooLarge면 경계 회귀다.
+  let atCap = Data(
+    repeating: UInt8(ascii: "A"), count: NativeScenePayload.maxPayloadBytes)
+  var data = Data("%PDF-1.4\n".utf8)
+  data.append(Data("\(NativeScenePayload.beginMarker)\n%".utf8))
+  data.append(atCap)
+  data.append(Data("\n\(NativeScenePayload.endMarker)\nstartxref\n0\n%%EOF".utf8))
+  #expect(throws: ImportError.corruptNativeData) {
+    try NativeScenePayload.extract(from: data)
+  }
+}
