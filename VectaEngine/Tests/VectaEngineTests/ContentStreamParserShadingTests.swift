@@ -85,3 +85,152 @@ private func axialShading(coords: String) -> String {
     extraObjects: [radialShading])
   #expect(report.issues.contains { $0.kind == .unsupportedShading })
 }
+
+@Test func shBakesShadingCoordsUnderCTM() {
+  // cm 2배 스케일 — 셰이딩 좌표가 CTM×pageFlip로 베이크된다.
+  // PDF (0,0)→(50,0) 에 cm ×2 적용 → (0,0)→(100,0), 그 뒤 pageFlip(높이 200)
+  // → 모델 (0,200)→(100,200)
+  let (nodes, _) = parseFixture(
+    content: "q 2 0 0 2 0 0 cm /Sh0 sh Q",
+    resources: "<< /Shading << /Sh0 5 0 R >> >>",
+    extraObjects: [axialShading(coords: "0 0 50 0")])
+  guard case .path(let pathNode) = nodes[0],
+    case .linearGradient(let gradient) = pathNode.style.fill
+  else {
+    Issue.record("선형 그라디언트가 아님")
+    return
+  }
+  #expect(gradient.start == CGPoint(x: 0, y: 200))
+  #expect(gradient.end == CGPoint(x: 100, y: 200))
+}
+
+@Test func shArrayFunctionReportsLossyFunction() {
+  // /Function 배열(성분별 분리) 첫 함수가 3출력 → 변환 성공하되 근사 리포트
+  let first = "<< /FunctionType 2 /Domain [0 1] /C0 [1 0 0] /C1 [0 0 1] /N 1 >>"
+  let second = "<< /FunctionType 2 /Domain [0 1] /C0 [0] /C1 [1] /N 1 >>"
+  let shading =
+    "<< /ShadingType 2 /ColorSpace /DeviceRGB /Coords [0 0 100 0] "
+    + "/Function [\(first) \(second)] >>"
+  let (nodes, report) = parseFixture(
+    content: "/Sh0 sh",
+    resources: "<< /Shading << /Sh0 5 0 R >> >>",
+    extraObjects: [shading])
+  #expect(nodes.count == 1)  // 변환 성공
+  #expect(report.issues.contains { $0.detail.contains("성분별 분리 함수") })
+}
+
+// MARK: - 패턴 채움
+
+@Test func shadingPatternFillsPathWithGradient() {
+  // cs /Pattern + scn /P1 + 패스 f — 패턴의 shading이 패스 fill 그라디언트가 된다.
+  let pattern =
+    "<< /Type /Pattern /PatternType 2 /Matrix [1 0 0 1 0 0] "
+    + "/Shading \(axialShading(coords: "0 0 100 0")) >>"
+  let (nodes, report) = parseFixture(
+    content: "/Pattern cs /P1 scn 10 10 80 80 re f",
+    resources: "<< /Pattern << /P1 5 0 R >> >>",
+    extraObjects: [pattern])
+  #expect(report.isEmpty)
+  #expect(nodes.count == 1)
+  guard case .path(let pathNode) = nodes[0],
+    case .linearGradient(let gradient) = pathNode.style.fill
+  else {
+    Issue.record("선형 그라디언트 fill이 아님")
+    return
+  }
+  // 패스 (10,10,80,80) PDF → 모델 y 110…190
+  #expect(pathNode.path.bounds == CGRect(x: 10, y: 110, width: 80, height: 80))
+  // 패턴 좌표 베이크(Matrix identity × pageFlip): PDF (0,0)→(100,0) → 모델 (0,200)→(100,200)
+  #expect(gradient.start == CGPoint(x: 0, y: 200))
+  #expect(gradient.end == CGPoint(x: 100, y: 200))
+}
+
+@Test func shadingPatternHonorsPatternMatrix() {
+  // /Matrix 평행이동 50 — 그라디언트 좌표가 따라 이동
+  let pattern =
+    "<< /Type /Pattern /PatternType 2 /Matrix [1 0 0 1 50 0] "
+    + "/Shading \(axialShading(coords: "0 0 100 0")) >>"
+  let (nodes, _) = parseFixture(
+    content: "/Pattern cs /P1 scn 0 0 200 200 re f",
+    resources: "<< /Pattern << /P1 5 0 R >> >>",
+    extraObjects: [pattern])
+  guard case .path(let pathNode) = nodes[0],
+    case .linearGradient(let gradient) = pathNode.style.fill
+  else {
+    Issue.record("그라디언트가 아님")
+    return
+  }
+  // (0,0)+50 → 모델 (50,200), (100,0)+50 → (150,200)
+  #expect(gradient.start == CGPoint(x: 50, y: 200))
+  #expect(gradient.end == CGPoint(x: 150, y: 200))
+}
+
+@Test func tilingPatternIsReportedAndFillSkipped() {
+  // PatternType 1(tiling) → 미지원, fill 없음(패스만)
+  let tiling =
+    "<< /Type /Pattern /PatternType 1 /PaintType 1 /TilingType 1 "
+    + "/BBox [0 0 10 10] /XStep 10 /YStep 10 /Resources << >> /Length 0 >> stream\n\nendstream"
+  let (nodes, report) = parseFixture(
+    content: "/Pattern cs /P1 scn 10 10 80 80 re f",
+    resources: "<< /Pattern << /P1 5 0 R >> >>",
+    extraObjects: [tiling])
+  #expect(report.issues.contains { $0.kind == .unsupportedShading })
+  guard case .path(let pathNode) = nodes[0] else {
+    Issue.record("패스가 아님")
+    return
+  }
+  #expect(pathNode.style.fill == nil)  // 채움 스킵, 도형은 보존
+}
+
+@Test func patternFillIsRestoredByQ() {
+  // q /Pattern cs /P1 scn ... Q 뒤 평범한 f는 패턴이 아니라 복원된 단색
+  let pattern =
+    "<< /Type /Pattern /PatternType 2 /Matrix [1 0 0 1 0 0] "
+    + "/Shading \(axialShading(coords: "0 0 100 0")) >>"
+  let (nodes, _) = parseFixture(
+    content: "1 0 0 rg q /Pattern cs /P1 scn 0 0 50 50 re f Q 60 60 50 50 re f",
+    resources: "<< /Pattern << /P1 5 0 R >> >>",
+    extraObjects: [pattern])
+  #expect(nodes.count == 2)
+  guard case .path(let patterned) = nodes[0], case .path(let solid) = nodes[1] else {
+    Issue.record("두 패스가 아님")
+    return
+  }
+  if case .linearGradient = patterned.style.fill {
+  } else {
+    Issue.record("첫 패스는 그라디언트여야 함")
+  }
+  // Q 복원 후 둘째 패스는 단색 빨강 (패턴 누출 없음)
+  #expect(solid.style.fill == .color(RGBA(red: 1, green: 0, blue: 0)))
+}
+
+@Test func shadingPatternFillKeepsStroke() {
+  // B 연산자 — 패턴 fill + 단색 stroke 둘 다 보존
+  let pattern =
+    "<< /Type /Pattern /PatternType 2 /Matrix [1 0 0 1 0 0] "
+    + "/Shading \(axialShading(coords: "0 0 100 0")) >>"
+  let (nodes, _) = parseFixture(
+    content: "0 0 1 RG 2 w /Pattern cs /P1 scn 10 10 m 100 10 l 100 100 l B",
+    resources: "<< /Pattern << /P1 5 0 R >> >>",
+    extraObjects: [pattern])
+  guard case .path(let pathNode) = nodes[0] else {
+    Issue.record("패스가 아님")
+    return
+  }
+  if case .linearGradient = pathNode.style.fill {
+  } else {
+    Issue.record("패턴 fill이 그라디언트가 아님")
+  }
+  #expect(pathNode.style.stroke?.paint == RGBA(red: 0, green: 0, blue: 1))
+}
+
+@Test func strokePatternIsReported() {
+  let pattern =
+    "<< /Type /Pattern /PatternType 2 /Matrix [1 0 0 1 0 0] "
+    + "/Shading \(axialShading(coords: "0 0 100 0")) >>"
+  let (_, report) = parseFixture(
+    content: "/Pattern CS /P1 SCN 10 10 m 100 100 l S",
+    resources: "<< /Pattern << /P1 5 0 R >> >>",
+    extraObjects: [pattern])
+  #expect(report.issues.contains { $0.detail.contains("패턴 스트로크") })
+}

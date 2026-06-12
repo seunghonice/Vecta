@@ -64,4 +64,18 @@ enum CGPDFReading {
     guard CGPDFDictionaryGetObject(dictionary, key, &object) else { return nil }
     return object
   }
+
+  /// 객체에서 stream을 꺼낸다.
+  static func stream(from object: CGPDFObjectRef) -> CGPDFStreamRef? {
+    var stream: CGPDFStreamRef? = nil
+    guard CGPDFObjectGetValue(object, .stream, &stream) else { return nil }
+    return stream
+  }
+
+  /// dict의 boolean 값.
+  static func boolean(_ dictionary: CGPDFDictionaryRef, _ key: String) -> Bool? {
+    var value: CGPDFBoolean = 0
+    guard CGPDFDictionaryGetBoolean(dictionary, key, &value) else { return nil }
+    return value != 0
+  }
 }
