@@ -33,7 +33,7 @@ final class VectaDocument: NSDocument {
     scrollView.backgroundColor = .windowBackgroundColor
 
     let toolbar = NSHostingView(rootView: ToolbarView(toolState: toolState))
-    let sidePanel = NSHostingView(rootView: LayerPanelView(store: store))
+    let sidePanel = NSHostingView(rootView: SidePanelView(store: store))
     let stack = NSStackView(views: [toolbar, scrollView, sidePanel])
     stack.orientation = .horizontal
     stack.distribution = .fill
