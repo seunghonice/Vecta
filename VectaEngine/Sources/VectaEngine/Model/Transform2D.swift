@@ -31,9 +31,14 @@ public struct Transform2D: Equatable, Codable, Sendable {
     CGAffineTransform(a: a, b: b, c: c, d: d, tx: tx, ty: ty)
   }
 
+  /// 행렬식 (ad − bc). 0에 가까우면 특이 행렬.
+  public var determinant: Double {
+    a * d - b * c
+  }
+
   /// 특이 행렬(행렬식 ≈ 0)이면 nil — `inverted()`가 원본을 반환하는 함정 방어.
   public var invertedOrNil: CGAffineTransform? {
-    guard abs(a * d - b * c) > 1e-10 else { return nil }
+    guard abs(determinant) > 1e-10 else { return nil }
     return cgAffineTransform.inverted()
   }
 }
