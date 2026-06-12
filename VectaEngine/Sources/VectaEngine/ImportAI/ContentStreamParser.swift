@@ -33,24 +33,25 @@ final class ContentStreamParser {
     var node: Node
   }
 
-  fileprivate enum PendingClip {
+  enum PendingClip {
     case winding, evenOdd
   }
 
   static let maxFormDepth = 8
 
-  private var state = GraphicsState()
+  var state = GraphicsState()
   private var stateStack: [GraphicsState] = []
   private var pathBuilder = PDFPathBuilder()
-  fileprivate var pendingClip: PendingClip?
+  var pendingClip: PendingClip?
   private var sinkStack: [[ClippedNode]] = [[]]
-  private var contentStreamStack: [CGPDFContentStreamRef] = []
+  var contentStreamStack: [CGPDFContentStreamRef] = []
   private var formDepth = 0
-  private var didReportText = false
   private var didReportInlineImage = false
-  private(set) var report = ImportReport()
+  /// BT~ET 사이의 텍스트 상태 (밖에서는 nil).
+  var textState: TextState?
+  var report = ImportReport()
   /// PDF 사용자 공간(bottom-left) → 모델(top-left) 변환.
-  private let pageFlip: CGAffineTransform
+  let pageFlip: CGAffineTransform
   /// 클립 없는 sh의 폴백 패스 (모델 좌표 mediaBox 사각형).
   private let mediaBoxPath: BezierPath
 
@@ -212,8 +213,35 @@ final class ContentStreamParser {
     CGPDFOperatorTableSetCallback(table, "sh") { scanner, info in
       parserFrom(info).paintShading(scanner)
     }
-    CGPDFOperatorTableSetCallback(table, "BT") { _, info in
-      parserFrom(info).reportTextOnce()
+    CGPDFOperatorTableSetCallback(table, "BT") { _, info in parserFrom(info).beginText() }
+    CGPDFOperatorTableSetCallback(table, "ET") { _, info in parserFrom(info).endText() }
+    CGPDFOperatorTableSetCallback(table, "Tf") { scanner, info in
+      parserFrom(info).setFont(scanner)
+    }
+    CGPDFOperatorTableSetCallback(table, "Td") { scanner, info in
+      parserFrom(info).textMove(scanner, setLeading: false)
+    }
+    CGPDFOperatorTableSetCallback(table, "TD") { scanner, info in
+      parserFrom(info).textMove(scanner, setLeading: true)
+    }
+    CGPDFOperatorTableSetCallback(table, "Tm") { scanner, info in
+      parserFrom(info).setTextMatrix(scanner)
+    }
+    CGPDFOperatorTableSetCallback(table, "T*") { _, info in parserFrom(info).textNextLine() }
+    CGPDFOperatorTableSetCallback(table, "TL") { scanner, info in
+      parserFrom(info).setLeading(scanner)
+    }
+    CGPDFOperatorTableSetCallback(table, "Tj") { scanner, info in
+      parserFrom(info).showText(scanner)
+    }
+    CGPDFOperatorTableSetCallback(table, "TJ") { scanner, info in
+      parserFrom(info).showTextArray(scanner)
+    }
+    CGPDFOperatorTableSetCallback(table, "'") { scanner, info in
+      parserFrom(info).showTextNextLine(scanner)
+    }
+    CGPDFOperatorTableSetCallback(table, "\"") { scanner, info in
+      parserFrom(info).showTextWithSpacing(scanner)
     }
     // ID/EI는 의도적으로 미등록 — CGPDFScanner가 인라인 이미지 페이로드를
     // 내부에서 소비하므로 BI만 받아도 스캐너가 어긋나지 않는다.
@@ -224,7 +252,7 @@ final class ContentStreamParser {
 
   // MARK: - 피연산자 팝
 
-  fileprivate static func popNumbers(_ scanner: CGPDFScannerRef, count: Int) -> [CGFloat]? {
+  static func popNumbers(_ scanner: CGPDFScannerRef, count: Int) -> [CGFloat]? {
     var values: [CGFloat] = []
     for _ in 0..<count {
       var value: CGPDFReal = 0
@@ -234,10 +262,19 @@ final class ContentStreamParser {
     return Array(values.reversed())  // 피연산자 스택은 역순으로 팝된다
   }
 
-  fileprivate static func popName(_ scanner: CGPDFScannerRef) -> String? {
+  static func popName(_ scanner: CGPDFScannerRef) -> String? {
     var pointer: UnsafePointer<CChar>? = nil
     guard CGPDFScannerPopName(scanner, &pointer), let pointer else { return nil }
     return String(cString: pointer)
+  }
+
+  static func popString(_ scanner: CGPDFScannerRef) -> [UInt8]? {
+    var pdfString: CGPDFStringRef? = nil
+    guard CGPDFScannerPopString(scanner, &pdfString), let pdfString,
+      let pointer = CGPDFStringGetBytePtr(pdfString)
+    else { return nil }
+    let length = CGPDFStringGetLength(pdfString)
+    return Array(UnsafeBufferPointer(start: pointer, count: length))
   }
 
   // MARK: - 상태 연산자
@@ -462,7 +499,7 @@ final class ContentStreamParser {
 
   /// - Parameter explicitClip: 전달값을 그대로 사용한다 (nil = 클립 없음).
   ///   W+페인트 결합 연산자처럼 이전 클립을 명시해야 할 때 쓴다 (§8.5.4).
-  private func appendNode(_ node: Node, explicitClip: BezierPath?) {
+  func appendNode(_ node: Node, explicitClip: BezierPath?) {
     sinkStack[sinkStack.count - 1].append(ClippedNode(clip: explicitClip, node: node))
   }
 
@@ -675,13 +712,6 @@ final class ContentStreamParser {
   }
 
   // MARK: - 미지원 요소 리포트
-
-  /// BT 연산자 — 파스당 한 번만 보고한다.
-  fileprivate func reportTextOnce() {
-    guard !didReportText else { return }
-    didReportText = true
-    report.add(.unsupportedText, detail: "텍스트 (M4b에서 지원 예정)")
-  }
 
   /// BI 연산자 — 파스당 한 번만 보고한다.
   fileprivate func reportInlineImageOnce() {
