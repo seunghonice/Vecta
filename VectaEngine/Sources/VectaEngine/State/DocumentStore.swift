@@ -109,8 +109,12 @@ public final class DocumentStore: ObservableObject {
 
   /// 드래그 시작. 이후 updateTransient는 이 시점 문서를 베이스로 한 절대
   /// 변경을 적용한다 (호출마다 누적되지 않음).
+  /// 이미 세션이 진행 중이면 이전 세션을 취소하고 새로 시작한다 — SwiftUI
+  /// 슬라이더가 editing(false) 없이 세션을 겹치는 드문 경로 방어.
   public func beginTransient() {
-    assert(transientBase == nil, "이미 transient 변경이 진행 중")
+    if transientBase != nil {
+      cancelTransient()
+    }
     transientBase = document
   }
 
