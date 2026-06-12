@@ -85,3 +85,36 @@ private func axialShading(coords: String) -> String {
     extraObjects: [radialShading])
   #expect(report.issues.contains { $0.kind == .unsupportedShading })
 }
+
+@Test func shBakesShadingCoordsUnderCTM() {
+  // cm 2배 스케일 — 셰이딩 좌표가 CTM×pageFlip로 베이크된다.
+  // PDF (0,0)→(50,0) 에 cm ×2 적용 → (0,0)→(100,0), 그 뒤 pageFlip(높이 200)
+  // → 모델 (0,200)→(100,200)
+  let (nodes, _) = parseFixture(
+    content: "q 2 0 0 2 0 0 cm /Sh0 sh Q",
+    resources: "<< /Shading << /Sh0 5 0 R >> >>",
+    extraObjects: [axialShading(coords: "0 0 50 0")])
+  guard case .path(let pathNode) = nodes[0],
+    case .linearGradient(let gradient) = pathNode.style.fill
+  else {
+    Issue.record("선형 그라디언트가 아님")
+    return
+  }
+  #expect(gradient.start == CGPoint(x: 0, y: 200))
+  #expect(gradient.end == CGPoint(x: 100, y: 200))
+}
+
+@Test func shArrayFunctionReportsLossyFunction() {
+  // /Function 배열(성분별 분리) 첫 함수가 3출력 → 변환 성공하되 근사 리포트
+  let first = "<< /FunctionType 2 /Domain [0 1] /C0 [1 0 0] /C1 [0 0 1] /N 1 >>"
+  let second = "<< /FunctionType 2 /Domain [0 1] /C0 [0] /C1 [1] /N 1 >>"
+  let shading =
+    "<< /ShadingType 2 /ColorSpace /DeviceRGB /Coords [0 0 100 0] "
+    + "/Function [\(first) \(second)] >>"
+  let (nodes, report) = parseFixture(
+    content: "/Sh0 sh",
+    resources: "<< /Shading << /Sh0 5 0 R >> >>",
+    extraObjects: [shading])
+  #expect(nodes.count == 1)  // 변환 성공
+  #expect(report.issues.contains { $0.detail.contains("성분별 분리 함수") })
+}
