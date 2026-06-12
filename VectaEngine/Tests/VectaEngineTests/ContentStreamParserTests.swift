@@ -269,23 +269,56 @@ private func firstPath(_ nodes: [Node]) -> PathNode? {
   #expect(nodes.count == 1)  // Do 실패해도 이후 파싱 계속
 }
 
-@Test func selfReferencingFormDoesNotRecurse() {
-  // CGPDFContentStreamGetResource는 폼 콘텐츠 스트림 안에서 부모 스트림(페이지)
-  // 리소스로 폴백하지 않는다. 따라서 폼 안에서 동일 이름의 XObject를 Do 해도
-  // 리소스 조회가 nil 을 반환해 재귀가 발생하지 않는다.
-  // 이 테스트는 해당 CGPDF 동작을 잠근다 — formRecursionLimit 가드가
-  // 이 경로에서 트리거되지 않음을 명시한다.
+@Test func nestedFormResolvesViaOwnResources() {
+  // 내부 폼(F1)을 자기 /Resources로 참조하는 외부 폼(F0) — 중첩 폼 해석
+  let innerContent = "1 0 0 rg 0 0 10 10 re f"
+  let inner =
+    "<< /Type /XObject /Subtype /Form /BBox [0 0 200 200] "
+    + "/Length \(innerContent.utf8.count) >> stream\n\(innerContent)\nendstream"
+  let outerContent = "/F1 Do"
+  let outer =
+    "<< /Type /XObject /Subtype /Form /BBox [0 0 200 200] "
+    + "/Resources << /XObject << /F1 6 0 R >> >> "
+    + "/Length \(outerContent.utf8.count) >> stream\n\(outerContent)\nendstream"
+  let (nodes, report) = parseFixture(
+    content: "/F0 Do",
+    resources: "<< /XObject << /F0 5 0 R >> >>",
+    extraObjects: [outer, inner])
+  #expect(report.isEmpty)
+  // 외부 폼 그룹 > (BBox 클립 그룹 포함) 내부 폼 그룹 > 패스 — 경로에서 패스 노드를 탐색
+  func findPath(in nodeList: [Node]) -> Bool {
+    for node in nodeList {
+      switch node {
+      case .path: return true
+      case .group(let g): if findPath(in: g.children) { return true }
+      default: break
+      }
+    }
+    return false
+  }
+  guard case .group = nodes.first else {
+    Issue.record("중첩 폼 그룹 구조가 아님: \(nodes)")
+    return
+  }
+  guard findPath(in: nodes) else {
+    Issue.record("중첩 폼 안에서 패스를 찾지 못함: \(nodes)")
+    return
+  }
+}
+
+@Test func selfReferencingFormHitsRecursionLimit() {
+  // 자기 자신을 자기 /Resources로 Do 하는 폼 — maxFormDepth에서 잘리고 리포트.
   let formContent = "/F0 Do 1 0 0 rg 0 0 10 10 re f"
   let form =
     "<< /Type /XObject /Subtype /Form /BBox [0 0 200 200] "
+    + "/Resources << /XObject << /F0 5 0 R >> >> "
     + "/Length \(formContent.utf8.count) >> stream\n\(formContent)\nendstream"
   let (nodes, report) = parseFixture(
     content: "/F0 Do",
     resources: "<< /XObject << /F0 5 0 R >> >>",
     extraObjects: [form])
-  // CGPDF가 폼 내부에서 부모 리소스를 조회하지 않으므로 재귀 없음
-  #expect(!report.issues.contains { $0.kind == .formRecursionLimit })
-  #expect(nodes.count == 1)  // 폼 안의 사각형 하나만 파싱
+  #expect(report.issues.contains { $0.kind == .formRecursionLimit })
+  #expect(!nodes.isEmpty)
 }
 
 @Test func imageXObjectIsReported() {

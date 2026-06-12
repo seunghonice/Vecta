@@ -498,11 +498,19 @@ final class ContentStreamParser {
       applyPendingClip(with: bboxBuilder.finish())
     }
     sinkStack.append([])
-    // CGPDFContentStreamCreateWithStream의 3번째 인자는 C에서 nullable이지만
-    // Swift에는 non-optional로 임포트된다. Do 콜백은 scan()이 스택에 push한 뒤
-    // 동기적으로 호출되므로 last는 항상 비-nil — force-unwrap 안전.
+    // CGPDFContentStreamCreateWithStream의 2번째 인자는 폼의 /Resources 사전이다
+    // (스트림 사전 전체가 아님 — 전체를 넘기면 폼 내부 리소스 조회가 전부 실패).
+    // Swift에서 이 인자는 non-optional로 임포트되므로 /Resources 가 없는 폼은
+    // 스트림 사전 자체를 폴백으로 전달한다. /Resources 키가 없는 폼은 내부에서
+    // XObject/ExtGState 등을 참조하지 않으므로 실질 영향 없음.
+    // 3번째 인자는 C에서 nullable이지만 Swift에는 non-optional로 임포트된다.
+    // Do 콜백은 scan()이 스택에 push한 뒤 동기적으로 호출되므로 last는 항상
+    // 비-nil — force-unwrap 안전.
+    var formResources: CGPDFDictionaryRef? = nil
+    _ = CGPDFDictionaryGetDictionary(dictionary, "Resources", &formResources)
+    let resourcesForChild = formResources ?? dictionary
     let childStream = CGPDFContentStreamCreateWithStream(
-      formStream, dictionary, contentStreamStack.last!)
+      formStream, resourcesForChild, contentStreamStack.last!)
     scan(contentStream: childStream)
     CGPDFContentStreamRelease(childStream)
     let formNodes = Self.grouped(sinkStack.removeLast())
