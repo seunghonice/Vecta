@@ -51,7 +51,7 @@ public enum SceneRenderer {
       context.beginTransparencyLayer(auxiliaryInfo: nil)
     }
     if let fill = pathNode.style.fill {
-      renderFill(fill, path: pathNode.path, in: context)
+      renderFill(fill, path: pathNode.path, fillRule: pathNode.fillRule, in: context)
     }
     if let stroke = pathNode.style.stroke {
       renderStroke(stroke, path: pathNode.path, in: context)
@@ -62,17 +62,19 @@ public enum SceneRenderer {
     context.restoreGState()
   }
 
-  private static func renderFill(_ paint: Paint, path: BezierPath, in context: CGContext) {
+  private static func renderFill(
+    _ paint: Paint, path: BezierPath, fillRule: FillRule, in context: CGContext
+  ) {
     switch paint {
     case .color(let color):
       context.setFillColor(color.cgColor)
       // fillPath()/strokePath()는 current path를 소비하므로 각 함수가 독립적으로 path를 추가해야 한다.
       context.addPath(path.cgPath)
-      context.fillPath()
+      context.fillPath(using: fillRule.cgFillRule)
     case .linearGradient(let gradient):
-      renderGradientFill(gradient, isRadial: false, path: path, in: context)
+      renderGradientFill(gradient, isRadial: false, path: path, fillRule: fillRule, in: context)
     case .radialGradient(let gradient):
-      renderGradientFill(gradient, isRadial: true, path: path, in: context)
+      renderGradientFill(gradient, isRadial: true, path: path, fillRule: fillRule, in: context)
     }
   }
 
@@ -80,19 +82,20 @@ public enum SceneRenderer {
   /// 좌표, radial은 start=중심·end=원주 위 한 점. 퇴화 케이스(스톱 1개,
   /// 길이 0 선분)는 첫 스톱 단색으로, 스톱 0개는 그리지 않는다.
   private static func renderGradientFill(
-    _ gradient: Gradient, isRadial: Bool, path: BezierPath, in context: CGContext
+    _ gradient: Gradient, isRadial: Bool, path: BezierPath, fillRule: FillRule,
+    in context: CGContext
   ) {
     guard let firstStop = gradient.stops.first else { return }
     if gradient.stops.count == 1 || gradient.start == gradient.end {
       context.setFillColor(firstStop.color.cgColor)
       context.addPath(path.cgPath)
-      context.fillPath()
+      context.fillPath(using: fillRule.cgFillRule)
       return
     }
     guard let cgGradient = gradient.cgGradient else { return }
     context.saveGState()
     context.addPath(path.cgPath)
-    context.clip()
+    context.clip(using: fillRule.cgFillRule)
     let options: CGGradientDrawingOptions = [
       .drawsBeforeStartLocation, .drawsAfterEndLocation,
     ]
@@ -136,6 +139,15 @@ extension LineJoin {
     case .miter: return .miter
     case .round: return .round
     case .bevel: return .bevel
+    }
+  }
+}
+
+extension FillRule {
+  var cgFillRule: CGPathFillRule {
+    switch self {
+    case .winding: return .winding
+    case .evenOdd: return .evenOdd
     }
   }
 }

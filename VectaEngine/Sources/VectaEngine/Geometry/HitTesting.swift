@@ -96,7 +96,9 @@ public enum HitTesting {
     guard let inverse = pathNode.transform.invertedOrNil else { return false }
     let local = point.applying(inverse)
     let cgPath = pathNode.path.cgPath
-    if pathNode.style.fill != nil, cgPath.contains(local, using: .winding) {
+    if pathNode.style.fill != nil,
+      cgPath.contains(local, using: pathNode.fillRule.cgFillRule)
+    {
       return true
     }
     if let stroke = pathNode.style.stroke {

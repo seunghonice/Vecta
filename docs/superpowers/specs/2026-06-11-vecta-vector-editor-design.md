@@ -87,7 +87,8 @@ struct Layer         { let id: NodeID; var name: String
 enum Node { case path(PathNode), group(GroupNode), text(TextNode), image(ImageNode) }
 
 struct PathNode  { let id: NodeID; var path: BezierPath
-                   var style: Style; var transform: CGAffineTransform }
+                   var style: Style; var transform: CGAffineTransform
+                   var fillRule: FillRule }   // winding|evenOdd (M4a — PDF f* 매핑)
 struct GroupNode { let id: NodeID; var children: [Node]
                    var clipPath: BezierPath?; var transform: CGAffineTransform }
 struct TextNode  { let id: NodeID; var string: String

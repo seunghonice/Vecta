@@ -1,20 +1,42 @@
 import CoreGraphics
 import Foundation
 
+/// 면 채움 규칙. PDF의 f(winding)/f*(even-odd) 매핑 (스펙 §5).
+public enum FillRule: String, Codable, Sendable {
+  case winding
+  case evenOdd
+}
+
 public struct PathNode: Equatable, Codable, Sendable {
   public let id: NodeID
   public var path: BezierPath
   public var style: Style
   public var transform: Transform2D
+  /// M4a에 추가 — 기존 파일(키 없음)은 winding으로 디코드된다.
+  public var fillRule: FillRule
 
   public init(
     id: NodeID = NodeID(), path: BezierPath, style: Style,
-    transform: Transform2D = .identity
+    transform: Transform2D = .identity, fillRule: FillRule = .winding
   ) {
     self.id = id
     self.path = path
     self.style = style
     self.transform = transform
+    self.fillRule = fillRule
+  }
+
+  private enum CodingKeys: String, CodingKey {
+    case id, path, style, transform, fillRule
+  }
+
+  public init(from decoder: Decoder) throws {
+    let container = try decoder.container(keyedBy: CodingKeys.self)
+    id = try container.decode(NodeID.self, forKey: .id)
+    path = try container.decode(BezierPath.self, forKey: .path)
+    style = try container.decode(Style.self, forKey: .style)
+    transform = try container.decode(Transform2D.self, forKey: .transform)
+    fillRule = try container.decodeIfPresent(FillRule.self, forKey: .fillRule) ?? .winding
   }
 }
 
