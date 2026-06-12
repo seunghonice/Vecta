@@ -30,6 +30,7 @@
 | Tj 간 advance는 CoreText로 측정해 text matrix 이동 | 같은 줄 연속 Tj가 이어지도록. 렌더와 동일 폰트 경로 재사용 |
 | fontName = 폰트의 `/BaseFont`(없으면 리소스 이름) 보존; 렌더는 시스템 폰트 매칭, 없으면 폴백 | 스펙 §4 "fontName 원본 보존". 폰트 미설치 시 폴백 렌더 |
 | 텍스트 위치 베이크: textMatrix × CTM × pageFlip (노드 transform에) | 텍스트는 변환된 baseline에 그려진다. 다른 임포트 노드(이미지)처럼 transform 사용 |
+| 회전·기울임 텍스트는 정립으로 근사 + 리포트 (transform=identity) | 회전을 transform에 넣으면 pageFlip y-flip이 섞여 렌더 이중 플립. 완전 회전 지원은 M5+ |
 | 텍스트 fill은 단색만 (`state.fillColor`) | 텍스트 그라디언트/패턴 채움은 드물고 모델 표현 복잡 — 단색 근사. SceneRenderer도 `.color`만 그림 |
 | 텍스트 bounds·HitTesting: CTLine 측정으로 정밀화 (스펙 §11 "M5"를 여기서) | 렌더와 동일 경로. 텍스트가 보이면 선택/마퀴도 동작해야 |
 | 수직 쓰기(WMode 1)·텍스트 렌더 모드(Tr 3 invisible·clip 등) 비목표 + 리포트 | MVP 범위. 가로 쓰기·채움만 |

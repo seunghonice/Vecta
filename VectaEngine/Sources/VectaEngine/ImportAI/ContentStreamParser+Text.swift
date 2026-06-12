@@ -113,8 +113,14 @@ extension ContentStreamParser {
     guard let text = textState, let font = text.font, !bytes.isEmpty else { return }
     let string = font.decode(bytes)
     guard !string.isEmpty else { return }
+    // 회전·기울임 텍스트는 정립으로 근사한다 (transform=identity). b·c가 0이
+    // 아니면 회전/전단 — 손실을 리포트한다 (pageFlip은 b=c=0이라 무관).
+    let textToUser = text.textMatrix.concatenating(state.ctm)
+    if textToUser.b != 0 || textToUser.c != 0 {
+      report.add(.unsupportedText, detail: "회전·기울임 텍스트 — 정립 근사")
+    }
     // 텍스트 공간 → 사용자 공간 → 모델: textMatrix × CTM × pageFlip.
-    let toModel = text.textMatrix.concatenating(state.ctm).concatenating(pageFlip)
+    let toModel = textToUser.concatenating(pageFlip)
     let origin = CGPoint.zero.applying(toModel)
     let node = TextNode(
       string: string, fontName: font.baseFont, fontSize: Double(text.fontSize),

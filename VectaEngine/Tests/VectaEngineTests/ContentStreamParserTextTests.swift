@@ -93,3 +93,21 @@ private func parseText(
     return
   }
 }
+
+@Test func rotatedTextReportsApproximation() {
+  // 90° 회전 Tm — 정립 근사 + 리포트
+  let (nodes, report) = parseText(content: "BT /F0 12 Tf 0 1 -1 0 50 50 Tm (R) Tj ET")
+  #expect(nodes.count == 1)  // 텍스트는 여전히 생성(정립)
+  guard case .text(let textNode) = nodes[0] else {
+    Issue.record("텍스트 노드가 아님")
+    return
+  }
+  #expect(textNode.transform == .identity)  // 정립 근사
+  #expect(report.issues.contains { $0.detail.contains("회전") })
+}
+
+@Test func nonRotatedTextNoApproximationReport() {
+  // 평범한 텍스트는 회전 리포트 없음
+  let (_, report) = parseText(content: "BT /F0 12 Tf 1 0 0 1 30 40 Tm (Plain) Tj ET")
+  #expect(!report.issues.contains { $0.detail.contains("회전") })
+}
