@@ -123,6 +123,14 @@ struct ToUnicodeCMap: Equatable {
       case "[", "]":
         flush(&current, into: &tokens)
         tokens.append(String(character))
+      case "%":
+        flush(&current, into: &tokens)
+        // PostScript 한 줄 주석 — 줄 끝(개행 직전)까지 건너뛴다.
+        while index < text.endIndex, text[index] != "\n", text[index] != "\r" {
+          index = text.index(after: index)
+        }
+      // index 는 이제 개행 문자(또는 endIndex) 위에 있음.
+      // 루프 말미의 trailing advance 가 개행을 넘기므로 continue 불필요.
       case " ", "\n", "\r", "\t":
         flush(&current, into: &tokens)
       default:
@@ -152,6 +160,7 @@ struct ToUnicodeCMap: Equatable {
   private static func hexString(_ token: String) -> String? {
     guard token.hasPrefix("<"), token.hasSuffix(">") else { return nil }
     let hex = token.dropFirst().dropLast()
+    guard !hex.isEmpty else { return nil }
     guard hex.count % 4 == 0 else {
       // 4자리(2바이트=UTF16 1유닛) 배수가 아니면 단일 스칼라로 시도
       guard let value = UInt32(hex, radix: 16),
