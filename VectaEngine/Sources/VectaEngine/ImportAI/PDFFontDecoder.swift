@@ -27,7 +27,7 @@ enum PDFFontDecoder {
     from dictionary: CGPDFDictionaryRef
   ) -> (font: PDFFont?, unsupported: String?) {
     let subtype = CGPDFReading.name(dictionary, "Subtype") ?? ""
-    let baseFont = CGPDFReading.name(dictionary, "BaseFont") ?? "Unknown"
+    let baseFont = stripSubsetPrefix(CGPDFReading.name(dictionary, "BaseFont") ?? "Unknown")
     let isType0 = subtype == "Type0"
     let codeBytes = isType0 ? 2 : 1
 
@@ -37,6 +37,13 @@ enum PDFFontDecoder {
     // Type0(복합)는 ToUnicode 없으면 디코드 불가.
     if isType0, toUnicode == nil {
       return (nil, "복합 폰트 \(baseFont) (ToUnicode 없음 — 미지원)")
+    }
+
+    // Type0의 비-Identity 인코딩은 코드 폭이 다를 수 있음 — 2바이트 근사 경고.
+    if isType0, let encName = CGPDFReading.name(dictionary, "Encoding"),
+      encName != "Identity-H", encName != "Identity-V"
+    {
+      unsupported = "복합 폰트 인코딩 \(encName) — 코드 폭 근사 (텍스트 부정확 가능)"
     }
 
     // 인코딩: name 또는 dict(Differences 동반).
@@ -90,5 +97,17 @@ enum PDFFontDecoder {
     case "StandardEncoding", "PDFDocEncoding": return .isoLatin1
     default: return .windowsCP1252
     }
+  }
+
+  /// 서브셋 폰트의 prefix(대문자 6자 + '+')를 제거한다 — 렌더 폰트 매칭용.
+  /// 예: "ABCDEF+Helvetica" → "Helvetica".
+  private static func stripSubsetPrefix(_ name: String) -> String {
+    let parts = name.split(separator: "+", maxSplits: 1)
+    if parts.count == 2, parts[0].count == 6,
+      parts[0].allSatisfy({ $0.isLetter && $0.isUppercase })
+    {
+      return String(parts[1])
+    }
+    return name
   }
 }

@@ -92,3 +92,45 @@ private func fontFromResource(
   #expect(pdfFont != nil)
   #expect(unsupported != nil)
 }
+
+@Test func subsetPrefixStrippedFromBaseFont() {
+  let font =
+    "<< /Type /Font /Subtype /Type1 /BaseFont /ABCDEF+Helvetica "
+    + "/Encoding /WinAnsiEncoding >>"
+  let (pdfFont, _) = fontFromResource(name: "F0", fontObject: font)
+  #expect(pdfFont?.baseFont == "Helvetica")  // prefix 제거
+}
+
+@Test func nonSubsetBaseFontUnchanged() {
+  let font =
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Times-Roman "
+    + "/Encoding /WinAnsiEncoding >>"
+  let (pdfFont, _) = fontFromResource(name: "F0", fontObject: font)
+  #expect(pdfFont?.baseFont == "Times-Roman")  // '+' 없으면 그대로
+}
+
+@Test func macRomanEncodingDecodes() {
+  let font =
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica "
+    + "/Encoding /MacRomanEncoding >>"
+  let (pdfFont, _) = fontFromResource(name: "F0", fontObject: font)
+  // MacRoman: 0x41='A' (ASCII 동일)
+  #expect(pdfFont?.decode([0x41, 0x42]) == "AB")
+}
+
+@Test func nonIdentityType0Reports() {
+  let cmap = """
+    1 beginbfchar
+    <0041> <0058>
+    endbfchar
+    endcmap
+    """
+  let cmapStream = "<< /Length \(cmap.utf8.count) >> stream\n\(cmap)\nendstream"
+  let font =
+    "<< /Type /Font /Subtype /Type0 /BaseFont /CID-Font "
+    + "/Encoding /UniGB-UCS2-H /ToUnicode 6 0 R >>"
+  let (pdfFont, unsupported) = fontFromResource(
+    name: "F0", fontObject: font, extraObjects: [cmapStream])
+  #expect(pdfFont != nil)  // ToUnicode 있으니 폰트는 생성
+  #expect(unsupported != nil)  // 비-Identity 경고
+}
