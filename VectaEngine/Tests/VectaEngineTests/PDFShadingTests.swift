@@ -7,7 +7,7 @@ import Testing
 private func parseShadingResource(
   name: String, shadingObject: String,
   mediaBox: CGRect = CGRect(x: 0, y: 0, width: 200, height: 200)
-) -> (gradient: Gradient, isRadial: Bool, lossyRadial: Bool)? {
+) -> (gradient: Gradient, isRadial: Bool, lossyRadial: Bool, lossyFunction: Bool)? {
   // sh 한 줄로 셰이딩 리소스를 참조하는 최소 콘텐츠.
   let data = makeTestPDF(
     content: "/\(name) sh",
@@ -107,4 +107,45 @@ private let exponentialFunction =
   }
   #expect(parsed.gradient.stops.first?.color == RGBA(red: 0, green: 0, blue: 0))
   #expect(parsed.gradient.stops.last?.color == RGBA(red: 1, green: 1, blue: 1))
+}
+
+@Test func perComponentFunctionArrayReportsLossyFunction() {
+  // /Function 배열(성분별 분리) — 첫 요소만 근사, lossyFunction=true.
+  // 첫 함수(R)는 1출력이라 DeviceRGB(3성분)와 불일치 → 샘플 실패 → nil.
+  // 배열 자체는 인식되지만 변환은 실패하므로 nil 반환 (조용한 색 오류 대신).
+  let r = "<< /FunctionType 2 /Domain [0 1] /C0 [1] /C1 [0] /N 1 >>"
+  let g = "<< /FunctionType 2 /Domain [0 1] /C0 [0] /C1 [0] /N 1 >>"
+  let b = "<< /FunctionType 2 /Domain [0 1] /C0 [0] /C1 [1] /N 1 >>"
+  let shading =
+    "<< /ShadingType 2 /ColorSpace /DeviceRGB /Coords [0 0 100 0] "
+    + "/Function [\(r) \(g) \(b)] >>"
+  #expect(parseShadingResource(name: "Sh0", shadingObject: shading) == nil)
+}
+
+@Test func multiOutputFunctionArrayFirstIsUsedAndFlagged() {
+  // 첫 함수가 3출력이면 변환 성공하되 lossyFunction=true (성분별 근사)
+  let first = "<< /FunctionType 2 /Domain [0 1] /C0 [1 0 0] /C1 [0 0 1] /N 1 >>"
+  let second = "<< /FunctionType 2 /Domain [0 1] /C0 [0] /C1 [1] /N 1 >>"
+  let shading =
+    "<< /ShadingType 2 /ColorSpace /DeviceRGB /Coords [0 0 100 0] "
+    + "/Function [\(first) \(second)] >>"
+  guard let parsed = parseShadingResource(name: "Sh0", shadingObject: shading) else {
+    Issue.record("파싱 실패")
+    return
+  }
+  #expect(parsed.lossyFunction)
+  #expect(!parsed.lossyRadial)
+}
+
+@Test func nonDefaultShadingDomainNormalizesStopLocations() {
+  // 셰이딩 /Domain [0 0.5] — 스톱 location은 여전히 0…1로 정규화
+  let shading =
+    "<< /ShadingType 2 /ColorSpace /DeviceRGB /Domain [0 0.5] "
+    + "/Coords [0 0 100 0] /Function \(exponentialFunction) >>"
+  guard let parsed = parseShadingResource(name: "Sh0", shadingObject: shading) else {
+    Issue.record("파싱 실패")
+    return
+  }
+  #expect(parsed.gradient.stops.first?.location == 0)
+  #expect(parsed.gradient.stops.last?.location == 1)
 }
