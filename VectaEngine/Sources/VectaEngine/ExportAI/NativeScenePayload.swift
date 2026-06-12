@@ -7,6 +7,10 @@ public enum NativeScenePayload {
   static let beginMarker = "%VectaSceneJSON-BEGIN"
   static let endMarker = "%VectaSceneJSON-END"
 
+  /// 임베드 페이로드 상한 (M1 리뷰 보류 항목) — 비정상·악의적 파일의
+  /// 메모리 폭주 방어. base64 텍스트 길이 기준 64MB.
+  public static let maxPayloadBytes = 64 * 1024 * 1024
+
   /// 씬그래프를 PDF 꼬리의 `startxref` 직전에 base64 주석 블록으로 삽입한다.
   /// 기존 블록이 있으면 교체한다.
   public static func embed(_ document: VectorDocument, into pdfData: Data) throws -> Data {
@@ -54,6 +58,9 @@ public enum NativeScenePayload {
       throw ImportError.corruptNativeData  // BEGIN만 있고 END 없음 = 손상
     }
     let base64 = data[beginRange.upperBound..<endRange.lowerBound]
+    guard base64.count <= maxPayloadBytes else {
+      throw ImportError.payloadTooLarge
+    }
     guard let json = Data(base64Encoded: base64) else {
       throw ImportError.corruptNativeData
     }
