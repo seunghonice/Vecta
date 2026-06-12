@@ -394,6 +394,9 @@ final class ContentStreamParser {
       pathBuilder.close()
     }
     let userPath = pathBuilder.finish()
+    // 같은 연산자의 클립+페인트(W f 등)는 이전 클립 아래에서 칠한다 (§8.5.4) —
+    // 새 클립은 이 페인팅이 끝난 뒤부터.
+    let clipForThisPaint = state.clip
     applyPendingClip(with: userPath)
     guard fill || stroke, !userPath.subpaths.isEmpty else { return }
     // CTM은 페인팅 시점에 일괄 적용한다. 패스 구성 중 cm(스펙 §8.5.2.1 금지
@@ -414,15 +417,22 @@ final class ContentStreamParser {
     }
     appendNode(
       .path(
-        PathNode(
-          path: modelPath, style: style, fillRule: evenOdd ? .evenOdd : .winding)))
+        PathNode(path: modelPath, style: style, fillRule: evenOdd ? .evenOdd : .winding)),
+      explicitClip: clipForThisPaint)
   }
 
+  /// - Parameter explicitClip: nil 은 "클립 없음"이 아니라 "현재 상태 사용"을 의미.
+  ///   W+페인트 결합 연산자처럼 이전 클립을 명시적으로 전달하려면 `explicitClip`에
+  ///   `Optional<BezierPath>` 자체를 넘긴다.
   private func appendNode(_ node: Node) {
     sinkStack[sinkStack.count - 1].append(ClippedNode(clip: state.clip, node: node))
   }
 
-  /// W/W* 보류 클립을 현재 패스로 확정한다 (Task 8에서 W/W* 등록).
+  private func appendNode(_ node: Node, explicitClip: BezierPath?) {
+    sinkStack[sinkStack.count - 1].append(ClippedNode(clip: explicitClip, node: node))
+  }
+
+  /// W/W* 보류 클립을 현재 패스로 확정한다.
   private func applyPendingClip(with userPath: BezierPath) {
     guard let pending = pendingClip else { return }
     pendingClip = nil

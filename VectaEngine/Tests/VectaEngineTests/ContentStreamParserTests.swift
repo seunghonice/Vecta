@@ -193,3 +193,31 @@ private func firstPath(_ nodes: [Node]) -> PathNode? {
   }
   #expect(group.children.count == 2)
 }
+
+@Test func clipWithCombinedPaintUsesOldClipForThatPaint() {
+  // W f — 같은 연산자에서 클립+페인트: 페인트는 이전 클립(없음) 아래 (§8.5.4),
+  // 클립은 그 다음 페인팅부터 적용된다.
+  let (nodes, _) = parseFixture(
+    content: "10 10 100 100 re W f 0 0 200 200 re f")
+  #expect(nodes.count == 2)
+  guard case .path = nodes[0], case .group(let clipped) = nodes[1] else {
+    Issue.record("첫 노드는 최상위 패스, 둘째는 클립 그룹이어야 함")
+    return
+  }
+  #expect(clipped.clipPath?.bounds == CGRect(x: 10, y: 90, width: 100, height: 100))
+}
+
+@Test func evenOddClipPreservesHole() {
+  // 도넛(동일 방향 사각형 2개)을 W*로 클립 — 짝홀 정규화로 구멍이 보존된다.
+  // 구멍 안에 칠한 패스는 클립 결과(구멍 제외)와 교차하지 않지만, 클립
+  // 그룹의 clipPath 바운드는 외곽 사각형이어야 한다.
+  let (nodes, _) = parseFixture(
+    content: "20 20 160 160 re 70 70 60 60 re W* n 0 0 200 200 re f")
+  guard case .group(let group) = nodes[0] else {
+    Issue.record("클립 그룹이 아님")
+    return
+  }
+  #expect(group.clipPath?.bounds == CGRect(x: 20, y: 20, width: 160, height: 160))
+  // 짝홀 정규화 결과는 단일 사각형이 아니라 구멍을 포함한 복합 패스다
+  #expect((group.clipPath?.subpaths.count ?? 0) >= 2)
+}
