@@ -32,7 +32,8 @@ enum PDFFunction: Equatable {
     switch self {
     case .exponential(let c0, let c1, let exponent, let domain):
       let x = min(max(t, domain.lowerBound), domain.upperBound)
-      let factor = pow(x, exponent)
+      // 음수 base + 분수 지수 = NaN 방어 (도메인이 음수 허용해도 안전).
+      let factor = pow(max(x, 0), exponent)
       return zip(c0, c1).map { $0 + factor * ($1 - $0) }
     case .stitching(let functions, let bounds, let encode, let domain):
       guard !functions.isEmpty, encode.count == functions.count else { return [] }
@@ -53,7 +54,7 @@ enum PDFFunction: Equatable {
   }
 
   /// 도메인을 count등분 균등 샘플해 GradientStop 배열을 만든다.
-  /// 성분→RGBA는 colorSpace가 담당하며, 성분 수 불일치 시 그 스톱을 건너뛴다.
+  /// 성분 수가 부족하면 그 스톱을 건너뛴다 (초과 시 color(from:)이 앞부분만 사용).
   func sampleStops(
     count: Int, colorSpace: PDFColorSpace, domain: ClosedRange<CGFloat>
   ) -> [GradientStop] {

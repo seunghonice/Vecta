@@ -80,3 +80,13 @@ private func expectClose(
   let stops = function.sampleStops(count: 3, colorSpace: .deviceRGB, domain: 0...1)
   #expect(stops.isEmpty)
 }
+
+@Test func exponentialNegativeDomainFractionalExponentStaysFinite() {
+  // 음수 도메인 + 분수 지수 — NaN 없이 유한값 (base 0 클램프)
+  let function = PDFFunction.exponential(
+    c0: [0], c1: [1], exponent: 2.5, domain: -1...1)
+  let value = function.evaluate(-0.5)
+  #expect(value.count == 1)
+  #expect(value[0].isFinite)
+  #expect(value[0] == 0)  // pow(max(-0.5,0)=0, 2.5)=0 → c0
+}
