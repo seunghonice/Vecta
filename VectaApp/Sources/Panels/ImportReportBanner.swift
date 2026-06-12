@@ -11,6 +11,8 @@ struct ImportReportBanner: View {
     HStack(spacing: 8) {
       Image(systemName: "exclamationmark.triangle.fill")
         .foregroundStyle(.yellow)
+      // M4b(이슈 #11): issues.count는 근사치 — multiplePages 같은 문서 단위
+      // 항목이 "객체" 수에 섞인다. 종류별 집계로 개선 예정.
       Text("\(report.issues.count)개 객체를 가져오지 못했습니다")
       Button("자세히") {
         showingDetails = true

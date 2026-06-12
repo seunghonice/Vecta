@@ -56,12 +56,16 @@ final class VectaDocument: NSDocument {
     return vertical
   }
 
-  /// 리포트로 배너를 만들거나 숨긴다 — 열기(윈도우 생성)와 되돌리기(read 재실행) 양쪽에서 호출.
+  /// 현재 importReport로 배너 뷰 모델을 만든다 — 열기·되돌리기 공용 단일 출처.
+  private func makeBanner() -> ImportReportBanner {
+    ImportReportBanner(report: importReport) { [weak self] in
+      self?.bannerHost?.isHidden = true
+    }
+  }
+
+  /// 배너 뷰를 NSHostingView로 감싼다 — makeContentView 전용 헬퍼.
   private func makeBannerView() -> NSHostingView<ImportReportBanner> {
-    let banner = NSHostingView(
-      rootView: ImportReportBanner(report: importReport) { [weak self] in
-        self?.bannerHost?.isHidden = true
-      })
+    let banner = NSHostingView(rootView: makeBanner())
     banner.isHidden = importReport.isEmpty
     return banner
   }
@@ -84,11 +88,10 @@ final class VectaDocument: NSDocument {
       importReport = result.report
       // Revert 경로: makeWindowControllers 없이 read가 재실행되므로
       // 기존 bannerHost를 새 리포트로 갱신한다.
+      // importReport는 이 블록 위에서 이미 할당됐으므로 makeBanner()가 최신값을 읽는다.
       if let host = bannerHost {
-        host.rootView = ImportReportBanner(report: result.report) { [weak self] in
-          self?.bannerHost?.isHidden = true
-        }
-        host.isHidden = result.report.isEmpty
+        host.rootView = makeBanner()
+        host.isHidden = importReport.isEmpty
       }
     }
   }
