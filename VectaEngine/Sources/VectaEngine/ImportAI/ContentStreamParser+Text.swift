@@ -127,8 +127,9 @@ extension ContentStreamParser {
       fill: .color(state.fillColor), position: origin,
       transform: .identity)
     appendNode(.text(node), explicitClip: state.clip)
-    // advance 근사 (Task 4에서 CoreText 측정으로 교체)
-    let width = text.fontSize * CGFloat(string.count) * 0.5
+    // CoreText로 advance 폭 측정 (Task 4).
+    let width = TextRendering.advanceWidth(
+      string: string, fontName: font.baseFont, fontSize: text.fontSize)
     textState?.textMatrix =
       CGAffineTransform(translationX: width, y: 0).concatenating(text.textMatrix)
   }
