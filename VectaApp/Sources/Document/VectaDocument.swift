@@ -7,6 +7,8 @@ final class VectaDocument: NSDocument {
     [weak self] in self?.undoManager
   }
   private let toolState = ToolState()
+  /// 마지막 열기에서 수집된 임포트 리포트 (배너 표시용 — Task 13).
+  private(set) var importReport = ImportReport.empty
 
   override class var autosavesInPlace: Bool { true }
 
@@ -54,9 +56,10 @@ final class VectaDocument: NSDocument {
     // read(from:ofType:)는 SDK상 nonisolated이지만 canConcurrentlyReadDocuments
     // (기본 false)를 재정의하지 않는 한 메인 스레드에서 호출된다.
     // 이 클래스에서 canConcurrentlyReadDocuments를 절대 재정의하지 말 것.
-    let vectorDocument = try AIFileReader.document(from: data)
+    let result = try AIFileReader.read(from: data)
     MainActor.assumeIsolated {
-      store.load(vectorDocument)
+      store.load(result.document)
+      importReport = result.report
     }
   }
 
