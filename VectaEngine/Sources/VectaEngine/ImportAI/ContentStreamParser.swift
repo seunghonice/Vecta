@@ -49,10 +49,15 @@ final class ContentStreamParser {
   private(set) var report = ImportReport()
   /// PDF 사용자 공간(bottom-left) → 모델(top-left) 변환.
   private let pageFlip: CGAffineTransform
+  /// 클립 없는 sh의 폴백 패스 (모델 좌표 mediaBox 사각형).
+  private let mediaBoxPath: BezierPath
 
   init(mediaBox: CGRect) {
     pageFlip = CGAffineTransform(
       a: 1, b: 0, c: 0, d: -1, tx: -mediaBox.minX, ty: mediaBox.maxY)
+    var builder = PDFPathBuilder()
+    builder.rect(CGRect(origin: .zero, size: mediaBox.size))
+    mediaBoxPath = builder.finish()
   }
 
   /// 페이지를 파싱해 노드와 리포트를 반환한다.
@@ -201,10 +206,9 @@ final class ContentStreamParser {
     CGPDFOperatorTableSetCallback(table, "Do") { scanner, info in
       parserFrom(info).invokeXObject(scanner)
     }
-    // 미지원 요소 — 건너뛰고 리포트 (M4b: 이슈 #11)
+    // 셰이딩 (M4b-1)
     CGPDFOperatorTableSetCallback(table, "sh") { scanner, info in
-      _ = ContentStreamParser.popName(scanner)
-      parserFrom(info).reportShading(detail: "그라디언트 셰이딩 (M4b에서 지원 예정)")
+      parserFrom(info).paintShading(scanner)
     }
     CGPDFOperatorTableSetCallback(table, "BT") { _, info in
       parserFrom(info).reportTextOnce()
@@ -565,12 +569,41 @@ final class ContentStreamParser {
     return values
   }
 
-  // MARK: - 미지원 요소 리포트
+  // MARK: - 셰이딩 (M4b-1)
 
-  /// sh 연산자 — 셰이딩마다 보고한다.
-  fileprivate func reportShading(detail: String) {
-    report.add(.unsupportedShading, detail: detail)
+  /// sh 연산자 — Shading 리소스를 그라디언트로 변환해 현재 클립(없으면
+  /// mediaBox) 패스에 fill한다.
+  private func paintShading(_ scanner: CGPDFScannerRef) {
+    guard let name = Self.popName(scanner),
+      let stream = contentStreamStack.last,
+      let object = CGPDFContentStreamGetResource(stream, "Shading", name)
+    else {
+      report.add(.unsupportedShading, detail: "셰이딩 리소스를 찾지 못함")
+      return
+    }
+    guard let parsed = PDFShading.parse(object) else {
+      report.add(.unsupportedShading, detail: "미지원 셰이딩 (mesh·function type·색공간)")
+      return
+    }
+    if parsed.lossyRadial {
+      report.add(.unsupportedShading, detail: "원형 셰이딩 근사 — 끝 원만 반영 (시작 원 무시)")
+    }
+    if parsed.lossyFunction {
+      report.add(.unsupportedShading, detail: "성분별 분리 함수 근사 — 첫 함수만 반영")
+    }
+    let toModel = state.ctm.concatenating(pageFlip)
+    let gradient = parsed.gradient.applying(toModel)
+    let paint: Paint =
+      parsed.isRadial ? .radialGradient(gradient) : .linearGradient(gradient)
+    // sh는 클립 영역을 채운다 — 클립 패스를 fill 패스로 사용하므로
+    // 별도 clip 래퍼 없이 노드를 직접 추가한다 (클립이 없으면 mediaBox 전체).
+    let fillPath = state.clip ?? mediaBoxPath
+    appendNode(
+      .path(PathNode(path: fillPath, style: Style(fill: paint, opacity: state.fillAlpha))),
+      explicitClip: nil)
   }
+
+  // MARK: - 미지원 요소 리포트
 
   /// BT 연산자 — 파스당 한 번만 보고한다.
   fileprivate func reportTextOnce() {

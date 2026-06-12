@@ -76,3 +76,14 @@ public struct Style: Equatable, Codable, Sendable {
     fill: .color(RGBA(red: 0.27, green: 0.51, blue: 0.96)),
     stroke: Stroke(paint: .black, width: 1))
 }
+
+extension Gradient {
+  /// start/end에 아핀 변환을 적용한 새 그라디언트 (임포트 좌표 베이크용).
+  /// 균등 스케일 가정 — radial 반지름(start–end 거리)도 함께 스케일된다.
+  public func applying(_ transform: CGAffineTransform) -> Gradient {
+    Gradient(
+      stops: stops,
+      start: start.applying(transform),
+      end: end.applying(transform))
+  }
+}
