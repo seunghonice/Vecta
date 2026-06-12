@@ -31,9 +31,11 @@ struct ToolbarView: View {
         .help(kind.koreanName)
         .accessibilityLabel(kind.koreanName)
       }
-      Spacer()
     }
     .padding(.top, ToolbarLayout.topPadding)
     .frame(width: ToolbarLayout.stripWidth)
+    // 세로 전체 높이를 받아 버튼을 상단 정렬한다 — 스트립이 세로로 늘어날 때
+    // 버튼이 아래로 밀리지 않도록 maxHeight + .top alignment로 고정.
+    .frame(maxHeight: .infinity, alignment: .top)
   }
 }
