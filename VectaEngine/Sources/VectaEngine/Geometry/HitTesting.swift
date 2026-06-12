@@ -15,6 +15,47 @@ public enum HitTesting {
     return nil
   }
 
+  /// 점에 닿는 최상단 "패스" 노드 ID — 그룹 내부로 내려가 잎 패스를 찾는다
+  /// (직접 선택 도구의 내부 진입 — 스펙 §7).
+  public static func topmostPathNodeID(
+    at point: CGPoint, in document: VectorDocument, tolerance: CGFloat
+  ) -> NodeID? {
+    for layer in document.layers.reversed() where layer.isVisible && !layer.isLocked {
+      if let found = topmostPathNodeID(at: point, in: layer.nodes, tolerance: tolerance) {
+        return found
+      }
+    }
+    return nil
+  }
+
+  private static func topmostPathNodeID(
+    at point: CGPoint, in nodes: [Node], tolerance: CGFloat
+  ) -> NodeID? {
+    for node in nodes.reversed() {
+      switch node {
+      case .path(let pathNode):
+        if hits(pathNode, at: point, tolerance: tolerance) { return pathNode.id }
+      case .group(let group):
+        guard let inverse = safeInverse(of: group.transform) else { continue }
+        let local = point.applying(inverse)
+        let determinant =
+          group.transform.a * group.transform.d - group.transform.b * group.transform.c
+        let localTolerance = tolerance / sqrt(abs(determinant))
+        if let clip = group.clipPath, !clip.cgPath.contains(local, using: .winding) {
+          continue
+        }
+        if let found = topmostPathNodeID(
+          at: local, in: group.children, tolerance: localTolerance)
+        {
+          return found
+        }
+      case .text, .image:
+        continue
+      }
+    }
+    return nil
+  }
+
   /// 마퀴 사각형과 바운드가 교차하는 최상위 노드 집합.
   public static func topLevelNodeIDs(
     intersecting rect: CGRect, in document: VectorDocument

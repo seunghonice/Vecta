@@ -101,6 +101,64 @@ extension VectorDocument {
 }
 
 extension VectorDocument {
+  /// id 패스 노드와 월드 변환(그룹 체인 합성: 노드 × 그룹 × …).
+  /// 직접 선택 도구의 좌표 변환용.
+  public func pathNode(
+    id: NodeID
+  ) -> (node: PathNode, worldTransform: CGAffineTransform)? {
+    for layer in layers {
+      if let found = findPathNode(id: id, in: layer.nodes, parentTransform: .identity) {
+        return found
+      }
+    }
+    return nil
+  }
+
+  private func findPathNode(
+    id: NodeID, in nodes: [Node], parentTransform: CGAffineTransform
+  ) -> (node: PathNode, worldTransform: CGAffineTransform)? {
+    for node in nodes {
+      switch node {
+      case .path(let pathNode) where pathNode.id == id:
+        return (pathNode, pathNode.transform.cgAffineTransform.concatenating(parentTransform))
+      case .group(let group):
+        let world = group.transform.cgAffineTransform.concatenating(parentTransform)
+        if let found = findPathNode(id: id, in: group.children, parentTransform: world) {
+          return found
+        }
+      default:
+        continue
+      }
+    }
+    return nil
+  }
+
+  /// 깊이에 상관없이 id 패스 노드 하나를 변경한다 (그룹 내부 포함).
+  public mutating func updatePathNode(id: NodeID, _ change: (inout PathNode) -> Void) {
+    for layerIndex in layers.indices {
+      layers[layerIndex].nodes = layers[layerIndex].nodes.map {
+        updatingPathNode($0, id: id, change)
+      }
+    }
+  }
+
+  private func updatingPathNode(
+    _ node: Node, id: NodeID, _ change: (inout PathNode) -> Void
+  ) -> Node {
+    switch node {
+    case .path(var pathNode):
+      if pathNode.id == id { change(&pathNode) }
+      return .path(pathNode)
+    case .group(var group):
+      group.children = group.children.map { updatingPathNode($0, id: id, change) }
+      return .group(group)
+    case .text, .image:
+      return node
+    }
+  }
+}
+
+extension VectorDocument {
   /// ids에 해당하는 패스 노드를 변경한다. 그룹이 매치되면 그 안의 모든 패스
   /// 자손에 적용된다 (Illustrator의 그룹 스타일 편집 의미).
   public mutating func updatePathNodes(ids: Set<NodeID>, _ change: (inout PathNode) -> Void) {

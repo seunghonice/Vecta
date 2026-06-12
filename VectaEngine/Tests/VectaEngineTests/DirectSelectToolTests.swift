@@ -153,6 +153,49 @@ private func at(_ x: CGFloat, _ y: CGFloat) -> CanvasEvent {
   #expect(tool.selectedAnchor == nil)
 }
 
+@Test @MainActor func clickInsideGroupTargetsInnerPath() {
+  let inner = PathNode(
+    path: .rectangle(CGRect(x: 0, y: 0, width: 50, height: 50)),
+    style: Style(fill: .color(.black)))
+  let group = GroupNode(
+    children: [.path(inner)],
+    transform: Transform2D(CGAffineTransform(translationX: 100, y: 0)))
+  var document = VectorDocument.empty(size: CGSize(width: 300, height: 300))
+  document.layers[0].nodes = [.group(group)]
+  let context = ToolContext(store: DocumentStore(document: document))
+  let tool = DirectSelectTool()
+  tool.mouseDown(at(120, 20), context: context)
+  tool.mouseUp(at(120, 20), context: context)
+  #expect(tool.editNodeID == inner.id)
+}
+
+@Test @MainActor func draggingAnchorInsideGroupUsesWorldCoordinates() {
+  let inner = PathNode(
+    path: .rectangle(CGRect(x: 0, y: 0, width: 50, height: 50)),
+    style: Style(fill: .color(.black)))
+  let group = GroupNode(
+    children: [.path(inner)],
+    transform: Transform2D(CGAffineTransform(translationX: 100, y: 0)))
+  var document = VectorDocument.empty(size: CGSize(width: 300, height: 300))
+  document.layers[0].nodes = [.group(group)]
+  let store = DocumentStore(document: document)
+  let context = ToolContext(store: store)
+  let tool = DirectSelectTool()
+  tool.mouseDown(at(120, 20), context: context)  // 본체 → 편집 대상
+  tool.mouseUp(at(120, 20), context: context)
+  tool.mouseDown(at(150, 50), context: context)  // 월드 (150,50) = 로컬 (50,50) 앵커
+  tool.mouseDragged(at(160, 60), context: context)
+  tool.mouseUp(at(160, 60), context: context)
+  guard let found = store.document.pathNode(id: inner.id) else {
+    Issue.record("패스 없음")
+    return
+  }
+  // 로컬 좌표로 (60,60)
+  #expect(
+    found.node.path.anchorPosition(AnchorRef(subpathIndex: 0, segmentIndex: 2))
+      == CGPoint(x: 60, y: 60))
+}
+
 @Test @MainActor func drawOverlaySmokeDoesNotCrash() {
   let (context, tool, _) = makeContext()
   tool.mouseDown(at(50, 30), context: context)  // 편집 대상

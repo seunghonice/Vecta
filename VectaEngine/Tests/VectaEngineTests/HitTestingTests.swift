@@ -136,3 +136,21 @@ private func twoRectDocument() -> (VectorDocument, bottom: NodeID, top: NodeID) 
     HitTesting.topmostNodeID(at: CGPoint(x: 19, y: 5), in: document, tolerance: 4)
       == group.id)
 }
+
+@Test func topmostPathNodeIDDescendsIntoGroups() {
+  let inner = PathNode(
+    path: .rectangle(CGRect(x: 0, y: 0, width: 50, height: 50)),
+    style: Style(fill: .color(.black)))
+  let group = GroupNode(
+    children: [.path(inner)],
+    transform: Transform2D(CGAffineTransform(translationX: 100, y: 0)))
+  var document = VectorDocument.empty(size: CGSize(width: 300, height: 300))
+  document.layers[0].nodes = [.group(group)]
+  // 그룹 ID가 아니라 내부 패스 ID를 반환한다 (직접 선택의 내부 진입)
+  let hit = HitTesting.topmostPathNodeID(
+    at: CGPoint(x: 120, y: 20), in: document, tolerance: 4)
+  #expect(hit == inner.id)
+  #expect(
+    HitTesting.topmostPathNodeID(at: CGPoint(x: 20, y: 20), in: document, tolerance: 4)
+      == nil)
+}

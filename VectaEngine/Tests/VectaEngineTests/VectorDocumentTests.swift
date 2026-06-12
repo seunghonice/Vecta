@@ -46,3 +46,39 @@ private func sampleDocument() -> VectorDocument {
   let document = VectorDocument.empty()
   #expect(document.artboard.size == CGSize(width: 595, height: 842))
 }
+
+@Test func pathNodeLookupAccumulatesWorldTransform() {
+  let inner = PathNode(
+    path: .rectangle(CGRect(x: 0, y: 0, width: 50, height: 50)),
+    style: Style(fill: .color(.black)),
+    transform: Transform2D(CGAffineTransform(translationX: 10, y: 0)))
+  let group = GroupNode(
+    children: [.path(inner)],
+    transform: Transform2D(CGAffineTransform(translationX: 100, y: 5)))
+  var document = VectorDocument.empty(size: CGSize(width: 300, height: 300))
+  document.layers[0].nodes = [.group(group)]
+  let found = document.pathNode(id: inner.id)
+  #expect(found?.node.id == inner.id)
+  // 월드 변환 = 노드 × 그룹: 로컬 (0,0) → (110, 5)
+  let world = CGPoint.zero.applying(found!.worldTransform)
+  #expect(world == CGPoint(x: 110, y: 5))
+}
+
+@Test func updatePathNodeReachesNestedPath() {
+  let inner = PathNode(
+    path: .rectangle(CGRect(x: 0, y: 0, width: 50, height: 50)),
+    style: Style(fill: .color(.black)))
+  let group = GroupNode(children: [.path(inner)])
+  var document = VectorDocument.empty(size: CGSize(width: 300, height: 300))
+  document.layers[0].nodes = [.group(group)]
+  document.updatePathNode(id: inner.id) { pathNode in
+    pathNode.style.opacity = 0.5
+  }
+  guard case .group(let updated) = document.layers[0].nodes[0],
+    case .path(let updatedInner) = updated.children[0]
+  else {
+    Issue.record("구조가 다름")
+    return
+  }
+  #expect(updatedInner.style.opacity == 0.5)
+}
