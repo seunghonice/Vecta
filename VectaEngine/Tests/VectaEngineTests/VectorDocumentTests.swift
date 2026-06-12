@@ -64,6 +64,26 @@ private func sampleDocument() -> VectorDocument {
   #expect(world == CGPoint(x: 110, y: 5))
 }
 
+@Test func pathNodeLookupAccumulatesNestedGroupChain() {
+  // 2단 중첩 그룹 — 재귀 누적 방향 고정: 월드 = 노드 × 내부그룹 × 외부그룹
+  let inner = PathNode(
+    path: .rectangle(CGRect(x: 0, y: 0, width: 10, height: 10)),
+    style: Style(fill: .color(.black)),
+    transform: Transform2D(CGAffineTransform(translationX: 1, y: 0)))
+  let innerGroup = GroupNode(
+    children: [.path(inner)],
+    transform: Transform2D(CGAffineTransform(scaleX: 2, y: 2)))
+  let outerGroup = GroupNode(
+    children: [.group(innerGroup)],
+    transform: Transform2D(CGAffineTransform(translationX: 100, y: 0)))
+  var document = VectorDocument.empty(size: CGSize(width: 300, height: 300))
+  document.layers[0].nodes = [.group(outerGroup)]
+  let found = document.pathNode(id: inner.id)
+  // 로컬 (0,0) → 노드 평행이동 (1,0) → 내부그룹 스케일 (2,0) → 외부그룹 평행이동 (102,0)
+  let world = CGPoint.zero.applying(found!.worldTransform)
+  #expect(world == CGPoint(x: 102, y: 0))
+}
+
 @Test func updatePathNodeReachesNestedPath() {
   let inner = PathNode(
     path: .rectangle(CGRect(x: 0, y: 0, width: 50, height: 50)),
