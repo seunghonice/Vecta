@@ -33,10 +33,12 @@ final class VectaDocument: NSDocument {
     scrollView.backgroundColor = .windowBackgroundColor
 
     let toolbar = NSHostingView(rootView: ToolbarView(toolState: toolState))
-    let stack = NSStackView(views: [toolbar, scrollView])
+    let sidePanel = NSHostingView(rootView: SidePanelView(store: store))
+    let stack = NSStackView(views: [toolbar, scrollView, sidePanel])
     stack.orientation = .horizontal
     stack.distribution = .fill
     stack.spacing = 0
+    sidePanel.widthAnchor.constraint(equalToConstant: 260).isActive = true
     return stack
   }
 
@@ -55,6 +57,39 @@ final class VectaDocument: NSDocument {
     let vectorDocument = try AIFileReader.document(from: data)
     MainActor.assumeIsolated {
       store.load(vectorDocument)
+    }
+  }
+
+  // MARK: - 오브젝트 메뉴 액션 (응답 체인 — MainMenuBuilder가 연결)
+
+  @objc func groupSelection(_ sender: Any?) {
+    store.groupSelection()
+  }
+
+  @objc func ungroupSelection(_ sender: Any?) {
+    store.ungroupSelection()
+  }
+
+  @objc func bringForward(_ sender: Any?) {
+    store.bringSelectionForward()
+  }
+
+  @objc func sendBackward(_ sender: Any?) {
+    store.sendSelectionBackward()
+  }
+
+  override func validateUserInterfaceItem(_ item: NSValidatedUserInterfaceItem) -> Bool {
+    switch item.action {
+    case #selector(groupSelection(_:)), #selector(bringForward(_:)),
+      #selector(sendBackward(_:)):
+      return !store.selection.isEmpty
+    case #selector(ungroupSelection(_:)):
+      return store.selection.contains { id in
+        if case .group? = store.document.topLevelNode(id: id) { return true }
+        return false
+      }
+    default:
+      return super.validateUserInterfaceItem(item)
     }
   }
 }

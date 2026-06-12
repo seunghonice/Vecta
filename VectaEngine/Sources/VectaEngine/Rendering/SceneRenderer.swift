@@ -1,4 +1,5 @@
 import CoreGraphics
+import Foundation
 
 /// 씬그래프를 CGContext에 그린다. 캔버스(NSView)와 PDF 익스포트가 공유한다.
 ///
@@ -68,9 +69,44 @@ public enum SceneRenderer {
       // fillPath()/strokePath()는 current path를 소비하므로 각 함수가 독립적으로 path를 추가해야 한다.
       context.addPath(path.cgPath)
       context.fillPath()
-    case .linearGradient, .radialGradient:
-      break  // M3에서 CGShading으로 구현
+    case .linearGradient(let gradient):
+      renderGradientFill(gradient, isRadial: false, path: path, in: context)
+    case .radialGradient(let gradient):
+      renderGradientFill(gradient, isRadial: true, path: path, in: context)
     }
+  }
+
+  /// 패스를 클립한 뒤 그라디언트를 그린다. 스펙 §4 — start/end는 객체 로컬
+  /// 좌표, radial은 start=중심·end=원주 위 한 점. 퇴화 케이스(스톱 1개,
+  /// 길이 0 선분)는 첫 스톱 단색으로, 스톱 0개는 그리지 않는다.
+  private static func renderGradientFill(
+    _ gradient: Gradient, isRadial: Bool, path: BezierPath, in context: CGContext
+  ) {
+    guard let firstStop = gradient.stops.first else { return }
+    if gradient.stops.count == 1 || gradient.start == gradient.end {
+      context.setFillColor(firstStop.color.cgColor)
+      context.addPath(path.cgPath)
+      context.fillPath()
+      return
+    }
+    guard let cgGradient = gradient.cgGradient else { return }
+    context.saveGState()
+    context.addPath(path.cgPath)
+    context.clip()
+    let options: CGGradientDrawingOptions = [
+      .drawsBeforeStartLocation, .drawsAfterEndLocation,
+    ]
+    if isRadial {
+      let radius = hypot(
+        gradient.end.x - gradient.start.x, gradient.end.y - gradient.start.y)
+      context.drawRadialGradient(
+        cgGradient, startCenter: gradient.start, startRadius: 0,
+        endCenter: gradient.start, endRadius: radius, options: options)
+    } else {
+      context.drawLinearGradient(
+        cgGradient, start: gradient.start, end: gradient.end, options: options)
+    }
+    context.restoreGState()
   }
 
   private static func renderStroke(_ stroke: Stroke, path: BezierPath, in context: CGContext) {
@@ -101,5 +137,17 @@ extension LineJoin {
     case .round: return .round
     case .bevel: return .bevel
     }
+  }
+}
+
+extension Gradient {
+  /// 위치 순 정렬된 스톱으로 CGGradient를 만든다 (스톱 2개 미만이면 nil).
+  fileprivate var cgGradient: CGGradient? {
+    guard stops.count >= 2 else { return nil }
+    let sorted = stops.sorted { $0.location < $1.location }
+    return CGGradient(
+      colorsSpace: CGColorSpace(name: CGColorSpace.sRGB),
+      colors: sorted.map(\.color.cgColor) as CFArray,
+      locations: sorted.map { CGFloat($0.location) })
   }
 }

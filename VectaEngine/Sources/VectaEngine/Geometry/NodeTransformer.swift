@@ -26,7 +26,8 @@ public enum NodeTransformer {
     return applying(operation, to: node)
   }
 
-  private static func applying(_ operation: CGAffineTransform, to node: Node) -> Node {
+  /// 부모 좌표계 연산을 노드 transform 뒤에 합성한다 (그룹 해제 등에서 사용).
+  public static func applying(_ operation: CGAffineTransform, to node: Node) -> Node {
     switch node {
     case .path(var pathNode):
       pathNode.transform = composed(pathNode.transform, operation)
@@ -45,5 +46,24 @@ public enum NodeTransformer {
 
   private static func composed(_ base: Transform2D, _ operation: CGAffineTransform) -> Transform2D {
     Transform2D(base.cgAffineTransform.concatenating(operation))
+  }
+}
+
+extension Node {
+  /// 노드 transform (케이스 공통 접근).
+  public var transform: Transform2D {
+    switch self {
+    case .path(let node): return node.transform
+    case .group(let node): return node.transform
+    case .text(let node): return node.transform
+    case .image(let node): return node.transform
+    }
+  }
+
+  /// transform의 회전 성분 (도). 모델 y-아래 좌표계 — 양수 = 화면 시계 방향.
+  /// 음수 스케일(미러)은 atan2가 회전으로 읽는다 (예: x플립 = 180°) —
+  /// 플립·회전 분해는 비목표, 인스펙터 표시용 근사값.
+  public var rotationDegrees: Double {
+    atan2(transform.b, transform.a) * 180 / .pi
   }
 }

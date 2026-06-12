@@ -82,3 +82,16 @@ private func makeRectNode() -> Node {
   undoManager.undo()
   #expect(undoManager.redoActionName == "도형 추가")
 }
+
+@Test @MainActor func overlappingBeginTransientRecoversByCancellingPrevious() {
+  // 슬라이더 세션이 editing(false) 없이 겹쳐도(beginTransient 중복) 크래시
+  // 없이 이전 세션을 취소하고 새 베이스를 잡는다 (인스펙터 슬라이더 방어).
+  let store = DocumentStore(document: .empty(size: CGSize(width: 100, height: 100)))
+  store.beginTransient()
+  store.updateTransient { $0.artboard.size = CGSize(width: 50, height: 50) }
+  store.beginTransient()  // 이전 미리보기는 취소되고 원본이 새 베이스가 된다
+  #expect(store.document.artboard.size == CGSize(width: 100, height: 100))
+  store.updateTransient { $0.artboard.size = CGSize(width: 70, height: 70) }
+  store.commitTransient(actionName: "확인")
+  #expect(store.document.artboard.size == CGSize(width: 70, height: 70))
+}

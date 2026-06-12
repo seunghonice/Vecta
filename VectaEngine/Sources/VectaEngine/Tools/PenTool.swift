@@ -13,6 +13,8 @@ public final class PenTool: CanvasTool {
   public init() {}
 
   public func mouseDown(_ event: CanvasEvent, context: ToolContext) {
+    // 이중 mouseDown 이벤트 방어 (mouseUp 누락 시 앵커 중복 방지 — M2b 이월).
+    guard !isDraggingHandle else { return }
     if builder.canClose(at: event.point, tolerance: event.hitTolerance * 1.5) {
       let path = builder.close()
       commit(path, context: context)
@@ -102,8 +104,7 @@ public final class PenTool: CanvasTool {
     rubberBandPoint = nil
     defer { context.invalidateOverlay() }
     guard let path else { return }
-    context.store.apply(actionName: "패스 생성") { document in
-      document.layers[0].nodes.append(.path(PathNode(path: path, style: .defaultShape)))
-    }
+    context.store.appendNodeToActiveLayer(
+      .path(PathNode(path: path, style: .defaultShape)), actionName: "패스 생성")
   }
 }

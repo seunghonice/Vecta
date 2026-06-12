@@ -153,6 +153,79 @@ private func at(_ x: CGFloat, _ y: CGFloat) -> CanvasEvent {
   #expect(tool.selectedAnchor == nil)
 }
 
+@Test @MainActor func clickInsideGroupTargetsInnerPath() {
+  let inner = PathNode(
+    path: .rectangle(CGRect(x: 0, y: 0, width: 50, height: 50)),
+    style: Style(fill: .color(.black)))
+  let group = GroupNode(
+    children: [.path(inner)],
+    transform: Transform2D(CGAffineTransform(translationX: 100, y: 0)))
+  var document = VectorDocument.empty(size: CGSize(width: 300, height: 300))
+  document.layers[0].nodes = [.group(group)]
+  let context = ToolContext(store: DocumentStore(document: document))
+  let tool = DirectSelectTool()
+  tool.mouseDown(at(120, 20), context: context)
+  tool.mouseUp(at(120, 20), context: context)
+  #expect(tool.editNodeID == inner.id)
+}
+
+@Test @MainActor func draggingAnchorInsideGroupUsesWorldCoordinates() {
+  let inner = PathNode(
+    path: .rectangle(CGRect(x: 0, y: 0, width: 50, height: 50)),
+    style: Style(fill: .color(.black)))
+  let group = GroupNode(
+    children: [.path(inner)],
+    transform: Transform2D(CGAffineTransform(translationX: 100, y: 0)))
+  var document = VectorDocument.empty(size: CGSize(width: 300, height: 300))
+  document.layers[0].nodes = [.group(group)]
+  let store = DocumentStore(document: document)
+  let context = ToolContext(store: store)
+  let tool = DirectSelectTool()
+  tool.mouseDown(at(120, 20), context: context)  // 본체 → 편집 대상
+  tool.mouseUp(at(120, 20), context: context)
+  tool.mouseDown(at(150, 50), context: context)  // 월드 (150,50) = 로컬 (50,50) 앵커
+  tool.mouseDragged(at(160, 60), context: context)
+  tool.mouseUp(at(160, 60), context: context)
+  guard let found = store.document.pathNode(id: inner.id) else {
+    Issue.record("패스 없음")
+    return
+  }
+  // 로컬 좌표로 (60,60)
+  #expect(
+    found.node.path.anchorPosition(AnchorRef(subpathIndex: 0, segmentIndex: 2))
+      == CGPoint(x: 60, y: 60))
+}
+
+@Test @MainActor func draggingAnchorInsideScaledGroupConvertsToLocal() {
+  // 2배 스케일 그룹 — 변환 합성 순서(노드 × 그룹)를 구분하는 테스트.
+  // 로컬 (0,0,50,50) 사각형이 월드 (100,0)~(200,100)에 보인다.
+  let inner = PathNode(
+    path: .rectangle(CGRect(x: 0, y: 0, width: 50, height: 50)),
+    style: Style(fill: .color(.black)))
+  let group = GroupNode(
+    children: [.path(inner)],
+    transform: Transform2D(
+      CGAffineTransform(translationX: 100, y: 0).scaledBy(x: 2, y: 2)))
+  var document = VectorDocument.empty(size: CGSize(width: 400, height: 400))
+  document.layers[0].nodes = [.group(group)]
+  let store = DocumentStore(document: document)
+  let context = ToolContext(store: store)
+  let tool = DirectSelectTool()
+  tool.mouseDown(at(150, 50), context: context)  // 본체 (월드) → 편집 대상
+  tool.mouseUp(at(150, 50), context: context)
+  #expect(tool.editNodeID == inner.id)
+  tool.mouseDown(at(200, 100), context: context)  // 월드 (200,100) = 로컬 (50,50) 앵커
+  tool.mouseDragged(at(220, 120), context: context)  // 월드 +20 → 로컬 +10
+  tool.mouseUp(at(220, 120), context: context)
+  guard let found = store.document.pathNode(id: inner.id) else {
+    Issue.record("패스 없음")
+    return
+  }
+  #expect(
+    found.node.path.anchorPosition(AnchorRef(subpathIndex: 0, segmentIndex: 2))
+      == CGPoint(x: 60, y: 60))
+}
+
 @Test @MainActor func drawOverlaySmokeDoesNotCrash() {
   let (context, tool, _) = makeContext()
   tool.mouseDown(at(50, 30), context: context)  // 편집 대상

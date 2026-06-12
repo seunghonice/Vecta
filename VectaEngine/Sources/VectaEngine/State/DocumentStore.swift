@@ -10,6 +10,9 @@ import Foundation
 public final class DocumentStore: ObservableObject {
   @Published public private(set) var document: VectorDocument
   @Published public private(set) var selection: Set<NodeID> = []
+  /// 새 노드가 추가되는 레이어 (레이어 패널에서 선택). ID 기반이라 순서
+  /// 변경·삭제에도 안정적이며, 사라지면 첫 레이어(0)로 폴백한다.
+  @Published public private(set) var activeLayerID: NodeID?
 
   private let undoManagerProvider: () -> UndoManager?
   private var transientBase: VectorDocument?
@@ -40,7 +43,32 @@ public final class DocumentStore: ObservableObject {
     transientBase = nil
     document = newDocument
     selection = []
+    activeLayerID = nil
     undoManagerProvider()?.removeAllActions()
+  }
+
+  // MARK: - 활성 레이어
+
+  public var activeLayerIndex: Int {
+    guard let activeLayerID,
+      let index = document.layers.firstIndex(where: { $0.id == activeLayerID })
+    else { return 0 }
+    return index
+  }
+
+  public func setActiveLayer(id: NodeID) {
+    guard document.layers.contains(where: { $0.id == id }) else { return }
+    activeLayerID = id
+  }
+
+  /// 도구 생성 경로 — 활성 레이어에 노드를 추가한다.
+  /// 활성 레이어가 잠겨 있거나 숨겨져 있으면 조용히 무시한다 (Illustrator 동작).
+  public func appendNodeToActiveLayer(_ node: Node, actionName: String) {
+    let index = activeLayerIndex
+    guard document.layers.indices.contains(index) else { return }
+    let layer = document.layers[index]
+    guard layer.isVisible, !layer.isLocked else { return }
+    apply(actionName: actionName) { $0.layers[index].nodes.append(node) }
   }
 
   // MARK: - 선택
@@ -81,8 +109,12 @@ public final class DocumentStore: ObservableObject {
 
   /// 드래그 시작. 이후 updateTransient는 이 시점 문서를 베이스로 한 절대
   /// 변경을 적용한다 (호출마다 누적되지 않음).
+  /// 이미 세션이 진행 중이면 이전 세션을 취소하고 새로 시작한다 — SwiftUI
+  /// 슬라이더가 editing(false) 없이 세션을 겹치는 드문 경로 방어.
   public func beginTransient() {
-    assert(transientBase == nil, "이미 transient 변경이 진행 중")
+    if transientBase != nil {
+      cancelTransient()
+    }
     transientBase = document
   }
 
