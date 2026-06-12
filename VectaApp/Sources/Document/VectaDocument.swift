@@ -41,6 +41,9 @@ final class VectaDocument: NSDocument {
     let horizontal = NSStackView(views: [toolbar, scrollView, sidePanel])
     horizontal.orientation = .horizontal
     horizontal.distribution = .fill
+    // 자식(캔버스 scrollView 등)이 행 높이를 가득 채우게 한다 — 기본 .centerY는
+    // scrollView를 intrinsic 높이(없음)로 찌그러뜨려 캔버스가 작아진다.
+    horizontal.alignment = .height
     horizontal.spacing = 0
     sidePanel.widthAnchor.constraint(equalToConstant: 260).isActive = true
 
@@ -52,6 +55,12 @@ final class VectaDocument: NSDocument {
     let vertical = NSStackView(views: [banner, horizontal])
     vertical.orientation = .vertical
     vertical.alignment = .width
+    // 본문 행이 남는 세로 공간을 모두 채우도록 한다 — 기본 .gravityAreas는
+    // horizontal을 intrinsic 높이로만 배치해 캔버스가 윈도우 끝까지 안 닿는다.
+    vertical.distribution = .fill
+    // 배너는 고정 높이(콘텐츠 크기) 유지 — 늘어나는 건 본문 행이다.
+    banner.setContentHuggingPriority(.required, for: .vertical)
+    banner.setContentCompressionResistancePriority(.required, for: .vertical)
     vertical.spacing = 0
     return vertical
   }
