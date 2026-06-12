@@ -500,10 +500,29 @@ final class ContentStreamParser {
     case "Form":
       invokeForm(xobjectStream, dictionary: dictionary)
     case "Image":
-      report.add(.unsupportedImage, detail: "이미지 XObject \(name) (M4b에서 지원 예정)")
+      paintImage(xobjectStream, dictionary: dictionary)
     default:
       break
     }
+  }
+
+  /// image XObject → ImageNode. frame=unit square, 배치는 transform에 베이크
+  /// (CTM × pageFlip). 디코드 실패·미지원이면 노드 없이 리포트만.
+  private func paintImage(_ stream: CGPDFStreamRef, dictionary: CGPDFDictionaryRef) {
+    let (png, unsupported) = PDFImageDecoder.decode(stream, dictionary: dictionary)
+    if let unsupported {
+      report.add(.unsupportedImage, detail: unsupported)
+      return
+    }
+    guard let png else {
+      report.add(.unsupportedImage, detail: "이미지 디코드 실패")
+      return
+    }
+    let toModel = state.ctm.concatenating(pageFlip)
+    let node = ImageNode(
+      imageData: png, frame: CGRect(x: 0, y: 0, width: 1, height: 1),
+      transform: Transform2D(toModel))
+    appendNode(.image(node), explicitClip: state.clip)
   }
 
   private func invokeForm(_ formStream: CGPDFStreamRef, dictionary: CGPDFDictionaryRef) {

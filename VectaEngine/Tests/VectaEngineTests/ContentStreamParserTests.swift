@@ -321,7 +321,8 @@ private func firstPath(_ nodes: [Node]) -> PathNode? {
   #expect(!nodes.isEmpty)
 }
 
-@Test func imageXObjectIsReported() {
+@Test func imageXObjectProducesImageNode() {
+  // M4b-2: 이미지 XObject → ImageNode (이전에는 리포트만)
   let image =
     "<< /Type /XObject /Subtype /Image /Width 1 /Height 1 /BitsPerComponent 8 "
     + "/ColorSpace /DeviceRGB /Length 3 >> stream\nABC\nendstream"
@@ -329,8 +330,10 @@ private func firstPath(_ nodes: [Node]) -> PathNode? {
     content: "/Im0 Do 10 10 20 20 re f",
     resources: "<< /XObject << /Im0 5 0 R >> >>",
     extraObjects: [image])
-  #expect(nodes.count == 1)  // 이미지는 건너뛰고 파싱 계속
-  #expect(report.issues.contains { $0.kind == .unsupportedImage })
+  // 이미지 노드 + 사각형 패스 노드 2개
+  #expect(nodes.count == 2)
+  #expect(report.isEmpty)
+  #expect(nodes.contains { if case .image = $0 { true } else { false } })
 }
 
 // MARK: - 미지원 요소 리포트
