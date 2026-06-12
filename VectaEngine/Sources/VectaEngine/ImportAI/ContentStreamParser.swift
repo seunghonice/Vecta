@@ -190,7 +190,14 @@ final class ContentStreamParser {
     CGPDFOperatorTableSetCallback(table, "n") { _, info in
       parserFrom(info).paint(fill: false, stroke: false, close: false, evenOdd: false)
     }
-    // 클리핑·XObject·미지원 리포트는 Task 8~10에서 등록 추가
+    // 클리핑 — 다음 페인팅 연산자에서 확정된다
+    CGPDFOperatorTableSetCallback(table, "W") { _, info in
+      parserFrom(info).pendingClip = .winding
+    }
+    CGPDFOperatorTableSetCallback(table, "W*") { _, info in
+      parserFrom(info).pendingClip = .evenOdd
+    }
+    // XObject·미지원 리포트는 Task 9~10에서 등록 추가
   }
 
   // MARK: - 피연산자 팝

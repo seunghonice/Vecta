@@ -146,3 +146,50 @@ private func firstPath(_ nodes: [Node]) -> PathNode? {
   #expect(yControl2 == yTo)  // y의 control2 = 종점
   #expect(yTo == CGPoint(x: 80, y: 190))
 }
+
+// MARK: - 클리핑
+
+@Test func clipWrapsSubsequentNodesInGroup() {
+  let (nodes, _) = parseFixture(
+    content: "10 10 100 100 re W n 0 0 1 rg 0 0 200 200 re f")
+  #expect(nodes.count == 1)
+  guard case .group(let group) = nodes[0] else {
+    Issue.record("클립 그룹이 아님")
+    return
+  }
+  // 클립 사각형: PDF (10,10,100,100) → 모델 y 90…190
+  #expect(group.clipPath?.bounds == CGRect(x: 10, y: 90, width: 100, height: 100))
+  #expect(group.children.count == 1)
+}
+
+@Test func clipIsRestoredByQ() {
+  let (nodes, _) = parseFixture(
+    content: "q 10 10 50 50 re W n 0 0 200 200 re f Q 0 0 20 20 re f")
+  #expect(nodes.count == 2)
+  guard case .group = nodes[0], case .path = nodes[1] else {
+    Issue.record("구조가 다름 — 클립 그룹 + 최상위 패스여야 함")
+    return
+  }
+}
+
+@Test func nestedClipsIntersect() {
+  let (nodes, _) = parseFixture(
+    content: "0 0 100 100 re W n 50 50 100 100 re W n 0 0 200 200 re f")
+  guard case .group(let group) = nodes[0] else {
+    Issue.record("클립 그룹이 아님")
+    return
+  }
+  // 교차: PDF (50,50)…(100,100) → 모델 y 100…150
+  #expect(group.clipPath?.bounds == CGRect(x: 50, y: 100, width: 50, height: 50))
+}
+
+@Test func consecutiveNodesUnderSameClipShareOneGroup() {
+  let (nodes, _) = parseFixture(
+    content: "10 10 150 150 re W n 20 20 30 30 re f 60 20 30 30 re f")
+  #expect(nodes.count == 1)
+  guard case .group(let group) = nodes[0] else {
+    Issue.record("클립 그룹이 아님")
+    return
+  }
+  #expect(group.children.count == 2)
+}
