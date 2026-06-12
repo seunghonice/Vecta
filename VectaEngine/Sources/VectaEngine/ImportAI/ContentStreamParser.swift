@@ -209,6 +209,8 @@ final class ContentStreamParser {
     CGPDFOperatorTableSetCallback(table, "BT") { _, info in
       parserFrom(info).reportTextOnce()
     }
+    // ID/EI는 의도적으로 미등록 — CGPDFScanner가 인라인 이미지 페이로드를
+    // 내부에서 소비하므로 BI만 받아도 스캐너가 어긋나지 않는다.
     CGPDFOperatorTableSetCallback(table, "BI") { _, info in
       parserFrom(info).reportInlineImageOnce()
     }
