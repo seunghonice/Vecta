@@ -84,9 +84,9 @@ public enum SceneRenderer {
     let ctLine = TextRendering.line(
       textNode.string, fontName: textNode.fontName,
       fontSize: CGFloat(textNode.fontSize), color: rgba.cgColor)
-    // 모델은 top-down(y-down). renderToBitmap の flip で context の y が up 向き.
-    // SceneRenderer の呼び出し元はすでに scale(1, -1) で flip 済み.
-    // position へ移動し、ローカルで再フリップすると CoreText が正立に描画される.
+    // 모델은 top-down(y-down). renderToBitmap이 scale(1,-1)로 컨텍스트를 플립하므로
+    // SceneRenderer 호출 시점의 y는 위 방향. position으로 이동 후 로컬에서 다시 플립하면
+    // CoreText가 정립(y-up 베이스라인 위로 오름)으로 그려진다.
     context.translateBy(x: textNode.position.x, y: textNode.position.y)
     context.scaleBy(x: 1, y: -1)
     context.textPosition = .zero
