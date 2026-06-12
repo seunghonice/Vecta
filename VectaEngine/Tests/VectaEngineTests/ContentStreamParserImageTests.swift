@@ -53,6 +53,35 @@ private let rgbImageObject: String = {
   #expect(report.issues.contains { $0.kind == .unsupportedImage })
 }
 
+@Test func importedImageRendersUprightThroughFullPipeline() {
+  // 상단 빨강(첫 행) / 하단 파랑(둘째 행) 1×2 이미지를 PDF 전체에 배치 →
+  // 임포트→렌더 파이프라인을 거쳐 모델 상단이 빨강이어야 한다 (정립).
+  let hex = "FF00000000FF>"  // row0 red(FF0000), row1 blue(0000FF)
+  let image =
+    "<< /Type /XObject /Subtype /Image /Width 1 /Height 2 "
+    + "/ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /ASCIIHexDecode "
+    + "/Length \(hex.utf8.count) >> stream\n\(hex)\nendstream"
+  // 200 0 0 200 0 0 cm — unit square를 페이지 전체(200×200)에 배치
+  let pdfData = makeTestPDF(
+    content: "q 200 0 0 200 0 0 cm /Im0 Do Q",
+    mediaBox: CGRect(x: 0, y: 0, width: 200, height: 200),
+    resources: "<< /XObject << /Im0 5 0 R >> >>",
+    extraObjects: [image])
+  let provider = CGDataProvider(data: pdfData as CFData)!
+  let page = CGPDFDocument(provider)!.page(at: 1)!
+  let (nodes, _) = ContentStreamParser.parse(page: page)
+  var document = VectorDocument.empty(size: CGSize(width: 200, height: 200))
+  document.layers[0].nodes = nodes
+  let context = renderToBitmap(document, size: CGSize(width: 200, height: 200))
+  // 모델 상단(y=50)은 빨강, 하단(y=150)은 파랑
+  let top = pixelColor(x: 100, y: 50, in: context)
+  #expect(top.red > 180)
+  #expect(top.blue < 80)
+  let bottom = pixelColor(x: 100, y: 150, in: context)
+  #expect(bottom.blue > 180)
+  #expect(bottom.red < 80)
+}
+
 @Test func imageRespectsClip() {
   // 클립 안에서 이미지 — 클립 그룹으로 묶인다
   let (nodes, _) = parseFixture(

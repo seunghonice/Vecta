@@ -518,7 +518,12 @@ final class ContentStreamParser {
       report.add(.unsupportedImage, detail: "이미지 디코드 실패")
       return
     }
-    let toModel = state.ctm.concatenating(pageFlip)
+    // unit square 내부 상하 플립을 먼저 합성한다 (x,y)→(x,1−y) — frame AABB 보존.
+    // pageFlip(d=−1)이 더하는 y-플립을 이걸로 상쇄해, 임포트 transform의
+    // y-방향이 툴 배치(양수 det)와 같아진다. 그래야 렌더러의 단일 in-frame
+    // 플립이 임포트·툴 양 경로 모두에서 정립으로 떨어진다 (이중 플립 해소).
+    let unitFlip = CGAffineTransform(a: 1, b: 0, c: 0, d: -1, tx: 0, ty: 1)
+    let toModel = unitFlip.concatenating(state.ctm).concatenating(pageFlip)
     let node = ImageNode(
       imageData: png, frame: CGRect(x: 0, y: 0, width: 1, height: 1),
       transform: Transform2D(toModel))
