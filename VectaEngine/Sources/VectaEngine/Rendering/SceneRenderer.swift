@@ -20,8 +20,10 @@ public enum SceneRenderer {
       render(pathNode, in: context)
     case .group(let groupNode):
       render(groupNode, in: context)
-    case .text, .image:
-      // M4(임포트)·M5(도구)에서 구현 예정. M1 모델은 생성 경로가 없다.
+    case .image(let imageNode):
+      render(imageNode, in: context)
+    case .text:
+      // M4b-3에서 구현 예정.
       break
     }
   }
@@ -59,6 +61,17 @@ public enum SceneRenderer {
     if needsGroupCompositing {
       context.endTransparencyLayer()
     }
+    context.restoreGState()
+  }
+
+  static func render(_ imageNode: ImageNode, in context: CGContext) {
+    guard let cgImage = CGImageCoding.cgImage(fromData: imageNode.imageData) else { return }
+    context.saveGState()
+    context.concatenate(imageNode.transform.cgAffineTransform)
+    // CGImage는 bottom-up — 모델(top-down) frame에 정립으로 그리려면 frame 내부에서 상하 플립.
+    context.translateBy(x: 0, y: imageNode.frame.maxY + imageNode.frame.minY)
+    context.scaleBy(x: 1, y: -1)
+    context.draw(cgImage, in: imageNode.frame)
     context.restoreGState()
   }
 
