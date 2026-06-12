@@ -9,6 +9,8 @@ final class VectaDocument: NSDocument {
   private let toolState = ToolState()
   /// 마지막 열기에서 수집된 임포트 리포트 (배너 표시용 — Task 13).
   private(set) var importReport = ImportReport.empty
+  /// 항상 마운트된 배너 호스팅 뷰 — 되돌리기(Revert) 갱신에도 사용.
+  private weak var bannerHost: NSHostingView<ImportReportBanner>?
 
   override class var autosavesInPlace: Bool { true }
 
@@ -36,12 +38,32 @@ final class VectaDocument: NSDocument {
 
     let toolbar = NSHostingView(rootView: ToolbarView(toolState: toolState))
     let sidePanel = NSHostingView(rootView: SidePanelView(store: store))
-    let stack = NSStackView(views: [toolbar, scrollView, sidePanel])
-    stack.orientation = .horizontal
-    stack.distribution = .fill
-    stack.spacing = 0
+    let horizontal = NSStackView(views: [toolbar, scrollView, sidePanel])
+    horizontal.orientation = .horizontal
+    horizontal.distribution = .fill
+    horizontal.spacing = 0
     sidePanel.widthAnchor.constraint(equalToConstant: 260).isActive = true
-    return stack
+
+    // 배너는 항상 마운트 — NSStackView가 isHidden 뷰를 레이아웃에서 분리하므로
+    // 빈 리포트일 때도 시각 결과는 동일. 이렇게 하면 Revert 재실행 시
+    // 배너 마운트 포인트가 보장된다.
+    let banner = makeBannerView()
+    bannerHost = banner
+    let vertical = NSStackView(views: [banner, horizontal])
+    vertical.orientation = .vertical
+    vertical.alignment = .width
+    vertical.spacing = 0
+    return vertical
+  }
+
+  /// 리포트로 배너를 만들거나 숨긴다 — 열기(윈도우 생성)와 되돌리기(read 재실행) 양쪽에서 호출.
+  private func makeBannerView() -> NSHostingView<ImportReportBanner> {
+    let banner = NSHostingView(
+      rootView: ImportReportBanner(report: importReport) { [weak self] in
+        self?.bannerHost?.isHidden = true
+      })
+    banner.isHidden = importReport.isEmpty
+    return banner
   }
 
   override func data(ofType typeName: String) throws -> Data {
@@ -60,6 +82,14 @@ final class VectaDocument: NSDocument {
     MainActor.assumeIsolated {
       store.load(result.document)
       importReport = result.report
+      // Revert 경로: makeWindowControllers 없이 read가 재실행되므로
+      // 기존 bannerHost를 새 리포트로 갱신한다.
+      if let host = bannerHost {
+        host.rootView = ImportReportBanner(report: result.report) { [weak self] in
+          self?.bannerHost?.isHidden = true
+        }
+        host.isHidden = result.report.isEmpty
+      }
     }
   }
 
