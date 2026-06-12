@@ -1,4 +1,5 @@
 import CoreGraphics
+import CoreText
 import Foundation
 
 /// 씬그래프를 CGContext에 그린다. 캔버스(NSView)와 PDF 익스포트가 공유한다.
@@ -22,9 +23,8 @@ public enum SceneRenderer {
       render(groupNode, in: context)
     case .image(let imageNode):
       render(imageNode, in: context)
-    case .text:
-      // M4b-3에서 구현 예정.
-      break
+    case .text(let textNode):
+      render(textNode, in: context)
     }
   }
 
@@ -74,6 +74,25 @@ public enum SceneRenderer {
     context.translateBy(x: 0, y: imageNode.frame.maxY + imageNode.frame.minY)
     context.scaleBy(x: 1, y: -1)
     context.draw(cgImage, in: imageNode.frame)
+    context.restoreGState()
+  }
+
+  static func render(_ textNode: TextNode, in context: CGContext) {
+    guard !textNode.string.isEmpty, textNode.fontSize > 0,
+      case .color(let rgba) = textNode.fill
+    else { return }
+    context.saveGState()
+    context.concatenate(textNode.transform.cgAffineTransform)
+    let ctLine = TextRendering.line(
+      textNode.string, fontName: textNode.fontName,
+      fontSize: CGFloat(textNode.fontSize), color: rgba.cgColor)
+    // 모델은 top-down(y-down). renderToBitmap이 scale(1,-1)로 컨텍스트를 플립하므로
+    // SceneRenderer 호출 시점의 y는 위 방향. position으로 이동 후 로컬에서 다시 플립하면
+    // CoreText가 정립(y-up 베이스라인 위로 오름)으로 그려진다.
+    context.translateBy(x: textNode.position.x, y: textNode.position.y)
+    context.scaleBy(x: 1, y: -1)
+    context.textPosition = .zero
+    CTLineDraw(ctLine, context)
     context.restoreGState()
   }
 

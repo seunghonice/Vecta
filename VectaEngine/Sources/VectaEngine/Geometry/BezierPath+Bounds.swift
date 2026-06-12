@@ -25,9 +25,10 @@ extension Node {
       guard !inner.isNull else { return .zero }
       return inner.applying(group.transform.cgAffineTransform)
     case .text(let text):
-      // 정밀 텍스트 바운드는 M5에서. 현재는 위치 점.
-      return CGRect(origin: text.position, size: .zero)
-        .applying(text.transform.cgAffineTransform)
+      let local = TextRendering.bounds(
+        string: text.string, fontName: text.fontName,
+        fontSize: CGFloat(text.fontSize), position: text.position)
+      return local.applying(text.transform.cgAffineTransform)
     case .image(let image):
       return image.frame.applying(image.transform.cgAffineTransform)
     }

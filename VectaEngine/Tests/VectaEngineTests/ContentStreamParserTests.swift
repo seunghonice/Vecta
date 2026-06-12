@@ -344,8 +344,9 @@ private func firstPath(_ nodes: [Node]) -> PathNode? {
   #expect(report.issues.contains { $0.kind == .unsupportedShading })
 }
 
-@Test func textBlockIsReportedOncePerParse() {
+@Test func emptyTextBlockProducesNoIssues() {
+  // 텍스트 연산자가 지원됐으므로 BT/ET 자체는 리포트를 남기지 않는다.
   let (_, report) = parseFixture(
     content: "BT ET BT ET 10 10 20 20 re f")
-  #expect(report.issues.filter { $0.kind == .unsupportedText }.count == 1)
+  #expect(report.issues.filter { $0.kind == .unsupportedText }.isEmpty)
 }

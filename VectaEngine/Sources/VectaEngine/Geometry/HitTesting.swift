@@ -83,8 +83,13 @@ public enum HitTesting {
         return false
       }
       return group.children.contains { hits($0, at: local, tolerance: localTolerance) }
-    case .text:
-      return false  // M5에서 텍스트 바운드와 함께
+    case .text(let text):
+      guard let inverse = text.transform.invertedOrNil else { return false }
+      let local = point.applying(inverse)
+      let textBounds = TextRendering.bounds(
+        string: text.string, fontName: text.fontName,
+        fontSize: CGFloat(text.fontSize), position: text.position)
+      return textBounds.insetBy(dx: -tolerance, dy: -tolerance).contains(local)
     case .image(let image):
       guard let inverse = image.transform.invertedOrNil else { return false }
       let local = point.applying(inverse)
