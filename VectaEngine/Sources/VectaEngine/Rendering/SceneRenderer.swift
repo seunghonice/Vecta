@@ -68,7 +68,9 @@ public enum SceneRenderer {
     guard let cgImage = CGImageCoding.cgImage(fromData: imageNode.imageData) else { return }
     context.saveGState()
     context.concatenate(imageNode.transform.cgAffineTransform)
+    context.interpolationQuality = .high
     // CGImage는 bottom-up — 모델(top-down) frame에 정립으로 그리려면 frame 내부에서 상하 플립.
+    // frame 중심선 기준 상하 반전 — 임의 frame에서도 정립(임포트는 항상 unit square).
     context.translateBy(x: 0, y: imageNode.frame.maxY + imageNode.frame.minY)
     context.scaleBy(x: 1, y: -1)
     context.draw(cgImage, in: imageNode.frame)

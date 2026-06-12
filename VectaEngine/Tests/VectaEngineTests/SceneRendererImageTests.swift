@@ -48,6 +48,28 @@ private func topRedBottomBluePNG() -> Data {
   #expect(bottom.red < 60)
 }
 
+@Test func rotatedImageComposesFlipCorrectly() {
+  // 90° 회전 배치 — flip이 회전과 올바르게 합성되는지 고정.
+  let png = topRedBottomBluePNG()
+  // unit square를 90° 회전(중심 기준) 후 모델 (50,50) 중심의 100×100에 배치.
+  let placement = CGAffineTransform(translationX: 50, y: 50)
+    .rotated(by: .pi / 2)
+    .scaledBy(x: 100, y: 100)
+    .translatedBy(x: -0.5, y: -0.5)
+  let node = ImageNode(
+    imageData: png, frame: CGRect(x: 0, y: 0, width: 1, height: 1),
+    transform: Transform2D(placement))
+  var document = VectorDocument.empty(size: CGSize(width: 100, height: 100))
+  document.layers[0].nodes = [.image(node)]
+  let context = renderToBitmap(document, size: CGSize(width: 100, height: 100))
+  let left = pixelColor(x: 25, y: 50, in: context)
+  let right = pixelColor(x: 75, y: 50, in: context)
+  // 측정값(2026-06-12): 90° CW 회전 → 원래 "상단 빨강"이 오른쪽, "하단 파랑"이 왼쪽.
+  // 좌(x=25)=파랑 우세, 우(x=75)=빨강 우세.
+  #expect(left.blue > 200 && left.red < 60)
+  #expect(right.red > 200 && right.blue < 60)
+}
+
 @Test func corruptImageDataRendersNothing() {
   let node = ImageNode(
     imageData: Data("not a png".utf8),
