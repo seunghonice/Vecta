@@ -421,13 +421,13 @@ final class ContentStreamParser {
       explicitClip: clipForThisPaint)
   }
 
-  /// - Parameter explicitClip: nil 은 "클립 없음"이 아니라 "현재 상태 사용"을 의미.
-  ///   W+페인트 결합 연산자처럼 이전 클립을 명시적으로 전달하려면 `explicitClip`에
-  ///   `Optional<BezierPath>` 자체를 넘긴다.
+  /// 현재 상태의 클립으로 노드를 수집한다.
   private func appendNode(_ node: Node) {
     sinkStack[sinkStack.count - 1].append(ClippedNode(clip: state.clip, node: node))
   }
 
+  /// - Parameter explicitClip: 전달값을 그대로 사용한다 (nil = 클립 없음).
+  ///   W+페인트 결합 연산자처럼 이전 클립을 명시해야 할 때 쓴다 (§8.5.4).
   private func appendNode(_ node: Node, explicitClip: BezierPath?) {
     sinkStack[sinkStack.count - 1].append(ClippedNode(clip: explicitClip, node: node))
   }
