@@ -99,6 +99,12 @@ struct LayerPanelView: View {
         .focused($nameFieldFocused)
         .onSubmit { commitRename(of: layer) }
         .onExitCommand { editingLayerID = nil }
+        .onChange(of: nameFieldFocused) { _, focused in
+          // 포커스 아웃 = 커밋 (Finder 이름 변경과 동일). Esc는 위에서 취소 처리.
+          if !focused, editingLayerID == layer.id {
+            commitRename(of: layer)
+          }
+        }
     } else {
       Text(layer.name)
         .lineLimit(1)
@@ -117,6 +123,7 @@ struct LayerPanelView: View {
 
   /// List 표시(역순) 인덱스 → 모델 배열 인덱스로 변환해 이동한다.
   private func moveDisplayedLayers(from source: IndexSet, to destination: Int) {
+    // 단일 선택 List — onMove는 한 행만 전달한다 (다중 이동은 비목표).
     guard let displayFrom = source.first else { return }
     let layers = store.document.layers
     let displayTo = destination > displayFrom ? destination - 1 : destination
