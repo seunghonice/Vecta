@@ -268,3 +268,34 @@ private func firstPath(_ nodes: [Node]) -> PathNode? {
   let (nodes, _) = parseFixture(content: "/Nope Do 10 10 20 20 re f")
   #expect(nodes.count == 1)  // Do 실패해도 이후 파싱 계속
 }
+
+@Test func selfReferencingFormDoesNotRecurse() {
+  // CGPDFContentStreamGetResource는 폼 콘텐츠 스트림 안에서 부모 스트림(페이지)
+  // 리소스로 폴백하지 않는다. 따라서 폼 안에서 동일 이름의 XObject를 Do 해도
+  // 리소스 조회가 nil 을 반환해 재귀가 발생하지 않는다.
+  // 이 테스트는 해당 CGPDF 동작을 잠근다 — formRecursionLimit 가드가
+  // 이 경로에서 트리거되지 않음을 명시한다.
+  let formContent = "/F0 Do 1 0 0 rg 0 0 10 10 re f"
+  let form =
+    "<< /Type /XObject /Subtype /Form /BBox [0 0 200 200] "
+    + "/Length \(formContent.utf8.count) >> stream\n\(formContent)\nendstream"
+  let (nodes, report) = parseFixture(
+    content: "/F0 Do",
+    resources: "<< /XObject << /F0 5 0 R >> >>",
+    extraObjects: [form])
+  // CGPDF가 폼 내부에서 부모 리소스를 조회하지 않으므로 재귀 없음
+  #expect(!report.issues.contains { $0.kind == .formRecursionLimit })
+  #expect(nodes.count == 1)  // 폼 안의 사각형 하나만 파싱
+}
+
+@Test func imageXObjectIsReported() {
+  let image =
+    "<< /Type /XObject /Subtype /Image /Width 1 /Height 1 /BitsPerComponent 8 "
+    + "/ColorSpace /DeviceRGB /Length 3 >> stream\nABC\nendstream"
+  let (nodes, report) = parseFixture(
+    content: "/Im0 Do 10 10 20 20 re f",
+    resources: "<< /XObject << /Im0 5 0 R >> >>",
+    extraObjects: [image])
+  #expect(nodes.count == 1)  // 이미지는 건너뛰고 파싱 계속
+  #expect(report.issues.contains { $0.kind == .unsupportedImage })
+}

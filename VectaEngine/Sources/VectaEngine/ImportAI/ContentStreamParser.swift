@@ -483,6 +483,10 @@ final class ContentStreamParser {
     }
     formDepth += 1
     saveState()
+    // 부모의 미완 패스가 폼 경계를 넘지 않게 격리한다 (스펙상 path 중 Do는
+    // 금지지만 부정형 입력 방어 — saveState 패턴과 대칭).
+    let parentPathBuilder = pathBuilder
+    pathBuilder = PDFPathBuilder()
     if let matrix = Self.matrix(from: dictionary, key: "Matrix") {
       state.ctm = matrix.concatenating(state.ctm)
     }
@@ -502,6 +506,7 @@ final class ContentStreamParser {
     scan(contentStream: childStream)
     CGPDFContentStreamRelease(childStream)
     let formNodes = Self.grouped(sinkStack.removeLast())
+    pathBuilder = parentPathBuilder
     restoreState()
     formDepth -= 1
     if !formNodes.isEmpty {
