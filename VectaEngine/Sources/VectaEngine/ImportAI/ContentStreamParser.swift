@@ -22,6 +22,8 @@ final class ContentStreamParser {
     var lineJoin: LineJoin = .miter
     var dash: [CGFloat] = []
     var fillAlpha: Double = 1
+    /// scn으로 지정된 fill 패턴 이름 (Pattern 색공간일 때).
+    var fillPattern: String?
     /// 누적 클립 (모델 좌표, winding 정규화 완료).
     var clip: BezierPath?
   }
@@ -324,6 +326,7 @@ final class ContentStreamParser {
     } else {
       state.fillColorSpace = space
       state.fillColor = color
+      state.fillPattern = nil
     }
   }
 
@@ -342,14 +345,17 @@ final class ContentStreamParser {
       state.strokeColorSpace = space
     } else {
       state.fillColorSpace = space
+      if space != .pattern { state.fillPattern = nil }
     }
   }
 
   private func setColorComponents(_ scanner: CGPDFScannerRef, isStroke: Bool) {
     let space = isStroke ? state.strokeColorSpace : state.fillColorSpace
     if space == .pattern {
-      // scn /P1 — shading 패턴 채움은 M4b. 직전 색 유지, 리포트만.
-      report.add(.unsupportedShading, detail: "패턴 채움 (M4b에서 지원 예정)")
+      // scn /P1 — 패턴 이름 기록 (해석은 페인팅 시점). stroke 패턴은 비목표.
+      if let name = Self.popName(scanner), !isStroke {
+        state.fillPattern = name
+      }
       return
     }
     guard space.componentCount > 0,
@@ -425,7 +431,11 @@ final class ContentStreamParser {
     let modelPath = userPath.applying(toModel)
     var style = Style(opacity: state.fillAlpha)
     if fill {
-      style.fill = .color(state.fillColor)
+      if let patternName = state.fillPattern {
+        style.fill = resolveShadingPatternFill(patternName)  // nil이면 채움 없음
+      } else {
+        style.fill = .color(state.fillColor)
+      }
     }
     if stroke {
       // PDF 선폭은 사용자 공간 정의 — CTM의 √|det| 근사 스케일 (결정 기록).
@@ -601,6 +611,39 @@ final class ContentStreamParser {
     appendNode(
       .path(PathNode(path: fillPath, style: Style(fill: paint, opacity: state.fillAlpha))),
       explicitClip: nil)
+  }
+
+  /// fill 패턴 이름 → 그라디언트 Paint. PatternType 2(shading)만 지원하며
+  /// tiling(type 1)·해석 실패는 리포트 후 nil (채움 스킵).
+  private func resolveShadingPatternFill(_ name: String) -> Paint? {
+    guard let stream = contentStreamStack.last,
+      let object = CGPDFContentStreamGetResource(stream, "Pattern", name),
+      let dictionary = CGPDFReading.dictionary(from: object)
+    else {
+      report.add(.unsupportedShading, detail: "패턴 리소스를 찾지 못함")
+      return nil
+    }
+    guard CGPDFReading.integer(dictionary, "PatternType") == 2 else {
+      report.add(.unsupportedShading, detail: "타일링 패턴 (반복 콘텐츠 — 미지원)")
+      return nil
+    }
+    guard let shadingObject = CGPDFReading.object(dictionary, "Shading"),
+      let parsed = PDFShading.parse(shadingObject)
+    else {
+      report.add(.unsupportedShading, detail: "패턴 셰이딩 변환 실패")
+      return nil
+    }
+    if parsed.lossyRadial {
+      report.add(.unsupportedShading, detail: "원형 패턴 근사 — 끝 원만 반영")
+    }
+    if parsed.lossyFunction {
+      report.add(.unsupportedShading, detail: "성분별 분리 함수 근사 — 첫 함수만 반영")
+    }
+    // 패턴 좌표 = pattern /Matrix × pageFlip (CTM 미적용 — 결정 기록).
+    let patternMatrix = Self.matrix(from: dictionary, key: "Matrix") ?? .identity
+    let toModel = patternMatrix.concatenating(pageFlip)
+    let gradient = parsed.gradient.applying(toModel)
+    return parsed.isRadial ? .radialGradient(gradient) : .linearGradient(gradient)
   }
 
   // MARK: - 미지원 요소 리포트
