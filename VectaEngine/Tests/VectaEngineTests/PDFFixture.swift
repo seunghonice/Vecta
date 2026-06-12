@@ -6,7 +6,7 @@ import Testing
 
 /// 수제 미니멀 PDF (스펙 §11 — 연산자 케이스별 파싱 테스트용).
 /// 객체 번호 규약: 1 카탈로그, 2 페이지 트리, 페이지 i(0부터)는
-/// 3+2i(페이지)·4+2i(콘텐츠). extraObjects는 그 뒤 — 1페이지면 5번부터.
+/// 3+2i(페이지)·4+2i(콘텐츠). 추가 객체는 그 뒤 — 3 + 2×pages.count 번부터 (1페이지면 5번부터).
 func makeTestPDF(
   pages: [String],
   mediaBox: CGRect = CGRect(x: 0, y: 0, width: 200, height: 200),
@@ -69,4 +69,19 @@ func makeTestPDF(
   let provider = CGDataProvider(data: data as CFData)!
   let pdf = CGPDFDocument(provider)
   #expect(pdf?.numberOfPages == 2)
+}
+
+@Test func fixtureContentStreamRoundTripsBytes() {
+  // /Length 프레이밍 고정 — 콘텐츠 스트림이 입력 바이트 그대로 복원돼야
+  // Task 7+ 파서 테스트가 신뢰할 수 있다.
+  let content = "1 0 0 rg 10 20 100 50 re f"
+  let data = makeTestPDF(content: content)
+  let provider = CGDataProvider(data: data as CFData)!
+  let page = CGPDFDocument(provider)!.page(at: 1)!
+  let dictionary = page.dictionary!
+  var stream: CGPDFStreamRef? = nil
+  #expect(CGPDFDictionaryGetStream(dictionary, "Contents", &stream))
+  var format = CGPDFDataFormat.raw
+  let copied = CGPDFStreamCopyData(stream!, &format)! as Data
+  #expect(copied == Data(content.utf8))
 }
