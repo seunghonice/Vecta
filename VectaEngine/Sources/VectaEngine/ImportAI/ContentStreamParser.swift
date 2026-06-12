@@ -389,6 +389,8 @@ final class ContentStreamParser {
     let userPath = pathBuilder.finish()
     applyPendingClip(with: userPath)
     guard fill || stroke, !userPath.subpaths.isEmpty else { return }
+    // CTM은 페인팅 시점에 일괄 적용한다. 패스 구성 중 cm(스펙 §8.5.2.1 금지
+    // 패턴)은 구성 시점 CTM과 달라질 수 있으나 실제 생성기에는 없어 허용.
     let toModel = state.ctm.concatenating(pageFlip)
     let modelPath = userPath.applying(toModel)
     var style = Style(opacity: state.fillAlpha)

@@ -22,6 +22,7 @@
 |---|---|
 | CTM·페이지 플립을 노드 좌표에 베이크 (transform = identity) | 임포트 목표는 시각 충실도. 베지어는 아핀 변환에 닫혀 있어 제어점 변환으로 정확. 폼 XObject는 구조 보존을 위해 GroupNode(identity)로만 묶음 |
 | 선폭·대시 길이는 CTM의 √\|det\| 근사 스케일 | 비균등 스케일 오차 허용 — 기존 히트테스트 허용 오차 관례와 동일 |
+| CTM은 페인팅 시점에 일괄 베이크 (구성 시점 아님) | 패스 구성 중 `cm`은 PDF 스펙 §8.5.2.1이 금지 — 실제 생성기에는 없는 패턴이라 근사 오차 허용 |
 | `PathNode.fillRule` 모델 추가 (winding/evenOdd, 디코드 기본 winding) | 스펙 §5의 짝홀(f*) 매핑 요구. §4 모델에 없던 필드 — 스펙도 갱신. 구버전 JSON은 decodeIfPresent로 호환 |
 | 클립 누적 = CGPath `normalized(using:)` + `intersection` (macOS 13+) | 정확 교차. W*의 짝홀 해석은 normalized로 winding 등가 변환 후 교차. 같은 클립의 연속 노드는 단일 GroupNode로 그룹화 |
 | 폼 XObject의 /BBox는 클립으로 적용, /Matrix는 CTM에 합성 | PDF 의미론 그대로 — 폼 밖 드로잉 누출 방지 |
