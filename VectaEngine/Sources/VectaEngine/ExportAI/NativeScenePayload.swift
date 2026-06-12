@@ -9,7 +9,7 @@ public enum NativeScenePayload {
 
   /// 임베드 페이로드 상한 (M1 리뷰 보류 항목) — 비정상·악의적 파일의
   /// 메모리 폭주 방어. base64 텍스트 길이 기준 64MB.
-  public static let maxPayloadBytes = 64 * 1024 * 1024
+  static let maxPayloadBytes = 64 * 1024 * 1024
 
   /// 씬그래프를 PDF 꼬리의 `startxref` 직전에 base64 주석 블록으로 삽입한다.
   /// 기존 블록이 있으면 교체한다.
