@@ -7,6 +7,10 @@ final class VectaDocument: NSDocument {
     [weak self] in self?.undoManager
   }
   private let toolState = ToolState()
+  /// 마지막 열기에서 수집된 임포트 리포트 (배너 표시용 — Task 13).
+  private(set) var importReport = ImportReport.empty
+  /// 항상 마운트된 배너 호스팅 뷰 — 되돌리기(Revert) 갱신에도 사용.
+  private weak var bannerHost: NSHostingView<ImportReportBanner>?
 
   override class var autosavesInPlace: Bool { true }
 
@@ -34,12 +38,36 @@ final class VectaDocument: NSDocument {
 
     let toolbar = NSHostingView(rootView: ToolbarView(toolState: toolState))
     let sidePanel = NSHostingView(rootView: SidePanelView(store: store))
-    let stack = NSStackView(views: [toolbar, scrollView, sidePanel])
-    stack.orientation = .horizontal
-    stack.distribution = .fill
-    stack.spacing = 0
+    let horizontal = NSStackView(views: [toolbar, scrollView, sidePanel])
+    horizontal.orientation = .horizontal
+    horizontal.distribution = .fill
+    horizontal.spacing = 0
     sidePanel.widthAnchor.constraint(equalToConstant: 260).isActive = true
-    return stack
+
+    // 배너는 항상 마운트 — NSStackView가 isHidden 뷰를 레이아웃에서 분리하므로
+    // 빈 리포트일 때도 시각 결과는 동일. 이렇게 하면 Revert 재실행 시
+    // 배너 마운트 포인트가 보장된다.
+    let banner = makeBannerView()
+    bannerHost = banner
+    let vertical = NSStackView(views: [banner, horizontal])
+    vertical.orientation = .vertical
+    vertical.alignment = .width
+    vertical.spacing = 0
+    return vertical
+  }
+
+  /// 현재 importReport로 배너 뷰 모델을 만든다 — 열기·되돌리기 공용 단일 출처.
+  private func makeBanner() -> ImportReportBanner {
+    ImportReportBanner(report: importReport) { [weak self] in
+      self?.bannerHost?.isHidden = true
+    }
+  }
+
+  /// 배너 뷰를 NSHostingView로 감싼다 — makeContentView 전용 헬퍼.
+  private func makeBannerView() -> NSHostingView<ImportReportBanner> {
+    let banner = NSHostingView(rootView: makeBanner())
+    banner.isHidden = importReport.isEmpty
+    return banner
   }
 
   override func data(ofType typeName: String) throws -> Data {
@@ -54,9 +82,17 @@ final class VectaDocument: NSDocument {
     // read(from:ofType:)는 SDK상 nonisolated이지만 canConcurrentlyReadDocuments
     // (기본 false)를 재정의하지 않는 한 메인 스레드에서 호출된다.
     // 이 클래스에서 canConcurrentlyReadDocuments를 절대 재정의하지 말 것.
-    let vectorDocument = try AIFileReader.document(from: data)
+    let result = try AIFileReader.read(from: data)
     MainActor.assumeIsolated {
-      store.load(vectorDocument)
+      store.load(result.document)
+      importReport = result.report
+      // Revert 경로: makeWindowControllers 없이 read가 재실행되므로
+      // 기존 bannerHost를 새 리포트로 갱신한다.
+      // importReport는 이 블록 위에서 이미 할당됐으므로 makeBanner()가 최신값을 읽는다.
+      if let host = bannerHost {
+        host.rootView = makeBanner()
+        host.isHidden = importReport.isEmpty
+      }
     }
   }
 

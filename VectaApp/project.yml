@@ -30,6 +30,11 @@ targets:
             LSItemContentTypes: [com.adobe.illustrator]
             LSHandlerRank: Alternate
             NSDocumentClass: Vecta.VectaDocument
+          - CFBundleTypeName: PDF Document
+            CFBundleTypeRole: Viewer
+            LSItemContentTypes: [com.adobe.pdf]
+            LSHandlerRank: Alternate
+            NSDocumentClass: Vecta.VectaDocument
         UTImportedTypeDeclarations:
           - UTTypeIdentifier: com.adobe.illustrator
             UTTypeDescription: Adobe Illustrator Document
