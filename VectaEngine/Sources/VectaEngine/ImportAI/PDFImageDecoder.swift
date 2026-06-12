@@ -11,6 +11,9 @@ enum PDFImageDecoder {
     if let bit = CGPDFReading.boolean(dictionary, "ImageMask"), bit {
       return (nil, "이미지 마스크 (알파 — 미지원)")
     }
+    if CGPDFReading.object(dictionary, "SMask") != nil {
+      return (nil, "소프트 마스크 (알파 — 미지원)")
+    }
     var format = CGPDFDataFormat.raw
     guard let data = CGPDFStreamCopyData(stream, &format) as Data? else {
       return (nil, "이미지 스트림 디코드 실패")
@@ -39,20 +42,17 @@ enum PDFImageDecoder {
     guard bitsPerComponent == 8 else {
       return (nil, "비트 깊이 \(bitsPerComponent) (8bpc만 지원)")
     }
-    // /ColorSpace는 name(Device*)만. 배열형(Indexed/ICC 등)·SMask 동반은 미지원.
-    if CGPDFReading.object(dictionary, "SMask") != nil {
-      return (nil, "소프트 마스크 (알파 — 미지원)")
-    }
+    // /ColorSpace는 name(Device*)만. 배열형(Indexed/ICC 등)은 미지원.
     guard let spaceName = CGPDFReading.name(dictionary, "ColorSpace") else {
       return (nil, "비단순 이미지 색공간")
     }
     let componentCount: Int
     let cgSpace: CGColorSpace
     switch spaceName {
-    case "DeviceRGB", "RGB", "CalRGB":
+    case "DeviceRGB":
       componentCount = 3
       cgSpace = CGColorSpace(name: CGColorSpace.sRGB)!
-    case "DeviceGray", "G", "CalGray":
+    case "DeviceGray":
       componentCount = 1
       cgSpace = CGColorSpaceCreateDeviceGray()
     default:
