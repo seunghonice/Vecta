@@ -221,3 +221,50 @@ private func firstPath(_ nodes: [Node]) -> PathNode? {
   // 짝홀 정규화 결과는 단일 사각형이 아니라 구멍을 포함한 복합 패스다
   #expect((group.clipPath?.subpaths.count ?? 0) >= 2)
 }
+
+// MARK: - 폼 XObject
+
+@Test func formXObjectBecomesGroupWithMatrixApplied() {
+  let formContent = "1 0 0 rg 0 0 20 20 re f"
+  let form =
+    "<< /Type /XObject /Subtype /Form /BBox [0 0 200 200] "
+    + "/Matrix [1 0 0 1 50 0] /Length \(formContent.utf8.count) >> stream\n"
+    + "\(formContent)\nendstream"
+  let (nodes, report) = parseFixture(
+    content: "/F0 Do",
+    resources: "<< /XObject << /F0 5 0 R >> >>",
+    extraObjects: [form])
+  #expect(report.isEmpty)
+  #expect(nodes.count == 1)
+  guard case .group(let group) = nodes[0] else {
+    Issue.record("폼 그룹이 아님")
+    return
+  }
+  #expect(group.children.count == 1)
+  // /Matrix 평행이동 50 적용: PDF (50,0,20,20) → 모델 (50, 180, 20, 20)
+  #expect(group.children[0].bounds == CGRect(x: 50, y: 180, width: 20, height: 20))
+}
+
+@Test func formBBoxClipsContent() {
+  // BBox (0,0,30,30) 밖으로 그리는 폼 — BBox가 클립으로 적용된다
+  let formContent = "1 0 0 rg 0 0 99 99 re f"
+  let form =
+    "<< /Type /XObject /Subtype /Form /BBox [0 0 30 30] "
+    + "/Length \(formContent.utf8.count) >> stream\n\(formContent)\nendstream"
+  let (nodes, _) = parseFixture(
+    content: "/F0 Do",
+    resources: "<< /XObject << /F0 5 0 R >> >>",
+    extraObjects: [form])
+  guard case .group(let outerGroup) = nodes[0],
+    case .group(let clipGroup) = outerGroup.children[0]
+  else {
+    Issue.record("폼 그룹 안에 클립 그룹이어야 함")
+    return
+  }
+  #expect(clipGroup.clipPath?.bounds == CGRect(x: 0, y: 170, width: 30, height: 30))
+}
+
+@Test func missingXObjectIsSilentlySkipped() {
+  let (nodes, _) = parseFixture(content: "/Nope Do 10 10 20 20 re f")
+  #expect(nodes.count == 1)  // Do 실패해도 이후 파싱 계속
+}

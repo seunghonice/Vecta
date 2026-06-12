@@ -197,7 +197,11 @@ final class ContentStreamParser {
     CGPDFOperatorTableSetCallback(table, "W*") { _, info in
       parserFrom(info).pendingClip = .evenOdd
     }
-    // XObject·미지원 리포트는 Task 9~10에서 등록 추가
+    // XObject
+    CGPDFOperatorTableSetCallback(table, "Do") { scanner, info in
+      parserFrom(info).invokeXObject(scanner)
+    }
+    // 미지원 리포트는 Task 10에서 등록 추가
   }
 
   // MARK: - 피연산자 팝
@@ -445,6 +449,95 @@ final class ContentStreamParser {
     } else {
       state.clip = BezierPath(cgPath: normalized)
     }
+  }
+
+  // MARK: - XObject
+
+  private func invokeXObject(_ scanner: CGPDFScannerRef) {
+    guard let name = Self.popName(scanner),
+      let stream = contentStreamStack.last,
+      let object = CGPDFContentStreamGetResource(stream, "XObject", name)
+    else { return }
+    var xobjectStream: CGPDFStreamRef? = nil
+    guard CGPDFObjectGetValue(object, .stream, &xobjectStream), let xobjectStream,
+      let dictionary = CGPDFStreamGetDictionary(xobjectStream)
+    else { return }
+    var subtypePointer: UnsafePointer<CChar>? = nil
+    guard CGPDFDictionaryGetName(dictionary, "Subtype", &subtypePointer),
+      let subtypePointer
+    else { return }
+    switch String(cString: subtypePointer) {
+    case "Form":
+      invokeForm(xobjectStream, dictionary: dictionary)
+    case "Image":
+      report.add(.unsupportedImage, detail: "이미지 XObject \(name) (M4b에서 지원 예정)")
+    default:
+      break
+    }
+  }
+
+  private func invokeForm(_ formStream: CGPDFStreamRef, dictionary: CGPDFDictionaryRef) {
+    guard formDepth < Self.maxFormDepth else {
+      report.add(.formRecursionLimit, detail: "폼 중첩 \(Self.maxFormDepth) 초과")
+      return
+    }
+    formDepth += 1
+    saveState()
+    if let matrix = Self.matrix(from: dictionary, key: "Matrix") {
+      state.ctm = matrix.concatenating(state.ctm)
+    }
+    // /BBox는 폼 콘텐츠의 클립 (PDF 의미론 — 결정 기록).
+    if let bbox = Self.rect(from: dictionary, key: "BBox") {
+      var bboxBuilder = PDFPathBuilder()
+      bboxBuilder.rect(bbox)
+      pendingClip = .winding
+      applyPendingClip(with: bboxBuilder.finish())
+    }
+    sinkStack.append([])
+    // CGPDFContentStreamCreateWithStream の第3引数は cg_nullable だが Swift では
+    // non-optional にマッピングされるため、force-unwrap で渡す（スタックは scan が
+    // push した直後なので必ず非 nil）。
+    let childStream = CGPDFContentStreamCreateWithStream(
+      formStream, dictionary, contentStreamStack.last!)
+    scan(contentStream: childStream)
+    CGPDFContentStreamRelease(childStream)
+    let formNodes = Self.grouped(sinkStack.removeLast())
+    restoreState()
+    formDepth -= 1
+    if !formNodes.isEmpty {
+      appendNode(.group(GroupNode(children: formNodes)))
+    }
+  }
+
+  private static func matrix(
+    from dictionary: CGPDFDictionaryRef, key: String
+  ) -> CGAffineTransform? {
+    guard let values = numbers(from: dictionary, key: key, count: 6) else { return nil }
+    return CGAffineTransform(
+      a: values[0], b: values[1], c: values[2], d: values[3], tx: values[4], ty: values[5])
+  }
+
+  private static func rect(from dictionary: CGPDFDictionaryRef, key: String) -> CGRect? {
+    guard let values = numbers(from: dictionary, key: key, count: 4) else { return nil }
+    return CGRect(
+      x: values[0], y: values[1], width: values[2] - values[0],
+      height: values[3] - values[1])
+  }
+
+  private static func numbers(
+    from dictionary: CGPDFDictionaryRef, key: String, count: Int
+  ) -> [CGFloat]? {
+    var array: CGPDFArrayRef? = nil
+    guard CGPDFDictionaryGetArray(dictionary, key, &array), let array,
+      CGPDFArrayGetCount(array) >= count
+    else { return nil }
+    var values: [CGFloat] = []
+    for index in 0..<count {
+      var value: CGPDFReal = 0
+      guard CGPDFArrayGetNumber(array, index, &value) else { return nil }
+      values.append(CGFloat(value))
+    }
+    return values
   }
 
   // MARK: - 결과 조립
