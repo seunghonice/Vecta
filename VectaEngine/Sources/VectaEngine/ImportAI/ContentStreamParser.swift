@@ -494,9 +494,9 @@ final class ContentStreamParser {
       applyPendingClip(with: bboxBuilder.finish())
     }
     sinkStack.append([])
-    // CGPDFContentStreamCreateWithStream の第3引数は cg_nullable だが Swift では
-    // non-optional にマッピングされるため、force-unwrap で渡す（スタックは scan が
-    // push した直後なので必ず非 nil）。
+    // CGPDFContentStreamCreateWithStream의 3번째 인자는 C에서 nullable이지만
+    // Swift에는 non-optional로 임포트된다. Do 콜백은 scan()이 스택에 push한 뒤
+    // 동기적으로 호출되므로 last는 항상 비-nil — force-unwrap 안전.
     let childStream = CGPDFContentStreamCreateWithStream(
       formStream, dictionary, contentStreamStack.last!)
     scan(contentStream: childStream)
