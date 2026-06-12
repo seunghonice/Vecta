@@ -6,6 +6,7 @@ enum MainMenuBuilder {
     mainMenu.addItem(wrap(appMenu()))
     mainMenu.addItem(wrap(fileMenu()))
     mainMenu.addItem(wrap(editMenu()))
+    mainMenu.addItem(wrap(objectMenu()))
     return mainMenu
   }
 
@@ -47,6 +48,25 @@ enum MainMenuBuilder {
       withTitle: "다른 이름으로 저장…",
       action: #selector(NSDocument.saveAs(_:)), keyEquivalent: "S")
     saveAs.keyEquivalentModifierMask = [.command, .shift]
+    return menu
+  }
+
+  private static func objectMenu() -> NSMenu {
+    let menu = NSMenu(title: "오브젝트")
+    menu.addItem(
+      withTitle: "그룹",
+      action: #selector(VectaDocument.groupSelection(_:)), keyEquivalent: "g")
+    let ungroup = menu.addItem(
+      withTitle: "그룹 해제",
+      action: #selector(VectaDocument.ungroupSelection(_:)), keyEquivalent: "G")
+    ungroup.keyEquivalentModifierMask = [.command, .shift]
+    menu.addItem(.separator())
+    menu.addItem(
+      withTitle: "앞으로 가져오기",
+      action: #selector(VectaDocument.bringForward(_:)), keyEquivalent: "]")
+    menu.addItem(
+      withTitle: "뒤로 보내기",
+      action: #selector(VectaDocument.sendBackward(_:)), keyEquivalent: "[")
     return menu
   }
 

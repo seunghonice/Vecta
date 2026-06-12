@@ -57,4 +57,37 @@ final class VectaDocument: NSDocument {
       store.load(vectorDocument)
     }
   }
+
+  // MARK: - 오브젝트 메뉴 액션 (응답 체인 — MainMenuBuilder가 연결)
+
+  @objc func groupSelection(_ sender: Any?) {
+    store.groupSelection()
+  }
+
+  @objc func ungroupSelection(_ sender: Any?) {
+    store.ungroupSelection()
+  }
+
+  @objc func bringForward(_ sender: Any?) {
+    store.bringSelectionForward()
+  }
+
+  @objc func sendBackward(_ sender: Any?) {
+    store.sendSelectionBackward()
+  }
+
+  override func validateUserInterfaceItem(_ item: NSValidatedUserInterfaceItem) -> Bool {
+    switch item.action {
+    case #selector(groupSelection(_:)), #selector(bringForward(_:)),
+      #selector(sendBackward(_:)):
+      return !store.selection.isEmpty
+    case #selector(ungroupSelection(_:)):
+      return store.selection.contains { id in
+        if case .group? = store.document.topLevelNode(id: id) { return true }
+        return false
+      }
+    default:
+      return super.validateUserInterfaceItem(item)
+    }
+  }
 }
