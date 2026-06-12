@@ -78,7 +78,9 @@ public enum SceneRenderer {
   }
 
   static func render(_ textNode: TextNode, in context: CGContext) {
-    guard !textNode.string.isEmpty, case .color(let rgba) = textNode.fill else { return }
+    guard !textNode.string.isEmpty, textNode.fontSize > 0,
+      case .color(let rgba) = textNode.fill
+    else { return }
     context.saveGState()
     context.concatenate(textNode.transform.cgAffineTransform)
     let ctLine = TextRendering.line(

@@ -5,6 +5,9 @@ import Foundation
 /// 텍스트 렌더·측정 공용 (CoreText). 폰트명이 시스템에 없으면 폴백.
 enum TextRendering {
   /// fontName/fontSize의 폰트 (없으면 시스템 폰트로 폴백 — 원본명은 노드가 보존).
+  ///
+  /// 주의: CTFontCreateWithName(size: 0)은 0크기가 아니라 기본 크기로 폴백한다
+  /// — 호출부가 fontSize>0을 보장해야 한다.
   static func font(named fontName: String, size: CGFloat) -> CTFont {
     let cfName = fontName as CFString
     return CTFontCreateWithName(cfName, size, nil)
@@ -26,7 +29,7 @@ enum TextRendering {
 
   /// 텍스트 공간 advance 폭 (text matrix 이동용).
   static func advanceWidth(string: String, fontName: String, fontSize: CGFloat) -> CGFloat {
-    guard !string.isEmpty else { return 0 }
+    guard fontSize > 0, !string.isEmpty else { return 0 }
     let ctLine = line(string, fontName: fontName, fontSize: fontSize, color: .black)
     return CGFloat(CTLineGetTypographicBounds(ctLine, nil, nil, nil))
   }
@@ -36,7 +39,7 @@ enum TextRendering {
   static func bounds(
     string: String, fontName: String, fontSize: CGFloat, position: CGPoint
   ) -> CGRect {
-    guard !string.isEmpty else { return CGRect(origin: position, size: .zero) }
+    guard fontSize > 0, !string.isEmpty else { return CGRect(origin: position, size: .zero) }
     let ctLine = line(string, fontName: fontName, fontSize: fontSize, color: .black)
     var ascent: CGFloat = 0
     var descent: CGFloat = 0
