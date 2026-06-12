@@ -181,3 +181,56 @@ private func axialShading(coords: String) -> String {
   }
   #expect(pathNode.style.fill == nil)  // 채움 스킵, 도형은 보존
 }
+
+@Test func patternFillIsRestoredByQ() {
+  // q /Pattern cs /P1 scn ... Q 뒤 평범한 f는 패턴이 아니라 복원된 단색
+  let pattern =
+    "<< /Type /Pattern /PatternType 2 /Matrix [1 0 0 1 0 0] "
+    + "/Shading \(axialShading(coords: "0 0 100 0")) >>"
+  let (nodes, _) = parseFixture(
+    content: "1 0 0 rg q /Pattern cs /P1 scn 0 0 50 50 re f Q 60 60 50 50 re f",
+    resources: "<< /Pattern << /P1 5 0 R >> >>",
+    extraObjects: [pattern])
+  #expect(nodes.count == 2)
+  guard case .path(let patterned) = nodes[0], case .path(let solid) = nodes[1] else {
+    Issue.record("두 패스가 아님")
+    return
+  }
+  if case .linearGradient = patterned.style.fill {
+  } else {
+    Issue.record("첫 패스는 그라디언트여야 함")
+  }
+  // Q 복원 후 둘째 패스는 단색 빨강 (패턴 누출 없음)
+  #expect(solid.style.fill == .color(RGBA(red: 1, green: 0, blue: 0)))
+}
+
+@Test func shadingPatternFillKeepsStroke() {
+  // B 연산자 — 패턴 fill + 단색 stroke 둘 다 보존
+  let pattern =
+    "<< /Type /Pattern /PatternType 2 /Matrix [1 0 0 1 0 0] "
+    + "/Shading \(axialShading(coords: "0 0 100 0")) >>"
+  let (nodes, _) = parseFixture(
+    content: "0 0 1 RG 2 w /Pattern cs /P1 scn 10 10 m 100 10 l 100 100 l B",
+    resources: "<< /Pattern << /P1 5 0 R >> >>",
+    extraObjects: [pattern])
+  guard case .path(let pathNode) = nodes[0] else {
+    Issue.record("패스가 아님")
+    return
+  }
+  if case .linearGradient = pathNode.style.fill {
+  } else {
+    Issue.record("패턴 fill이 그라디언트가 아님")
+  }
+  #expect(pathNode.style.stroke?.paint == RGBA(red: 0, green: 0, blue: 1))
+}
+
+@Test func strokePatternIsReported() {
+  let pattern =
+    "<< /Type /Pattern /PatternType 2 /Matrix [1 0 0 1 0 0] "
+    + "/Shading \(axialShading(coords: "0 0 100 0")) >>"
+  let (_, report) = parseFixture(
+    content: "/Pattern CS /P1 SCN 10 10 m 100 100 l S",
+    resources: "<< /Pattern << /P1 5 0 R >> >>",
+    extraObjects: [pattern])
+  #expect(report.issues.contains { $0.detail.contains("패턴 스트로크") })
+}

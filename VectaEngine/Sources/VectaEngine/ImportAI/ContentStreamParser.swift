@@ -345,15 +345,19 @@ final class ContentStreamParser {
       state.strokeColorSpace = space
     } else {
       state.fillColorSpace = space
-      if space != .pattern { state.fillPattern = nil }
+      // 모든 fill cs는 패턴을 초기화 — 정당한 /Pattern cs /P1 scn은 scn이 다시 설정.
+      state.fillPattern = nil
     }
   }
 
   private func setColorComponents(_ scanner: CGPDFScannerRef, isStroke: Bool) {
     let space = isStroke ? state.strokeColorSpace : state.fillColorSpace
     if space == .pattern {
-      // scn /P1 — 패턴 이름 기록 (해석은 페인팅 시점). stroke 패턴은 비목표.
-      if let name = Self.popName(scanner), !isStroke {
+      let name = Self.popName(scanner)
+      if isStroke {
+        report.add(.unsupportedShading, detail: "패턴 스트로크 — 미지원")
+      } else if let name {
+        // scn /P1 — 패턴 이름 기록 (해석은 페인팅 시점).
         state.fillPattern = name
       }
       return
