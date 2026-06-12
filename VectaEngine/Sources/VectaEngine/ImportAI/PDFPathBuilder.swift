@@ -62,6 +62,8 @@ struct PDFPathBuilder: Equatable {
     flush(isClosed: false)
     let path = BezierPath(subpaths: subpaths)
     subpaths = []
+    currentPoint = .zero
+    subpathStart = .zero
     return path
   }
 
@@ -72,6 +74,8 @@ struct PDFPathBuilder: Equatable {
     segments = []
   }
 
+  /// 세그먼트가 비어 있으면 현재 점에서 .move를 합성해 subpath를 연다.
+  /// m 없이 오는 l/c(스펙상 미정의)는 현재 점(초기 .zero)에서 시작된다.
   private mutating func ensureOpenSubpath() {
     if segments.isEmpty {
       segments = [.move(to: currentPoint)]

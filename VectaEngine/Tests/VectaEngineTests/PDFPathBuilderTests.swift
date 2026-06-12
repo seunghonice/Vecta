@@ -71,3 +71,13 @@ import Testing
   _ = builder.finish()
   #expect(builder.finish().subpaths.isEmpty)
 }
+
+@Test func finishResetsCurrentPointForReuse() {
+  var builder = PDFPathBuilder()
+  builder.move(to: CGPoint(x: 70, y: 70))
+  builder.line(to: CGPoint(x: 90, y: 70))
+  _ = builder.finish()
+  builder.line(to: CGPoint(x: 10, y: 0))  // m 없는 l — 리셋된 .zero에서 합성
+  let path = builder.finish()
+  #expect(path.subpaths[0].segments[0] == .move(to: .zero))
+}
