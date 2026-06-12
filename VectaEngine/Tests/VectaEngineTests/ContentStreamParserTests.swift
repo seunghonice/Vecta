@@ -332,3 +332,17 @@ private func firstPath(_ nodes: [Node]) -> PathNode? {
   #expect(nodes.count == 1)  // 이미지는 건너뛰고 파싱 계속
   #expect(report.issues.contains { $0.kind == .unsupportedImage })
 }
+
+// MARK: - 미지원 요소 리포트
+
+@Test func shadingOperatorIsReported() {
+  let (nodes, report) = parseFixture(content: "/Sh0 sh 10 10 20 20 re f")
+  #expect(nodes.count == 1)  // 파싱은 계속
+  #expect(report.issues.contains { $0.kind == .unsupportedShading })
+}
+
+@Test func textBlockIsReportedOncePerParse() {
+  let (_, report) = parseFixture(
+    content: "BT ET BT ET 10 10 20 20 re f")
+  #expect(report.issues.filter { $0.kind == .unsupportedText }.count == 1)
+}

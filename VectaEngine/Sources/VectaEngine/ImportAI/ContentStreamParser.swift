@@ -201,7 +201,17 @@ final class ContentStreamParser {
     CGPDFOperatorTableSetCallback(table, "Do") { scanner, info in
       parserFrom(info).invokeXObject(scanner)
     }
-    // 미지원 리포트는 Task 10에서 등록 추가
+    // 미지원 요소 — 건너뛰고 리포트 (M4b: 이슈 #11)
+    CGPDFOperatorTableSetCallback(table, "sh") { scanner, info in
+      _ = ContentStreamParser.popName(scanner)
+      parserFrom(info).reportShading(detail: "그라디언트 셰이딩 (M4b에서 지원 예정)")
+    }
+    CGPDFOperatorTableSetCallback(table, "BT") { _, info in
+      parserFrom(info).reportTextOnce()
+    }
+    CGPDFOperatorTableSetCallback(table, "BI") { _, info in
+      parserFrom(info).reportInlineImageOnce()
+    }
   }
 
   // MARK: - 피연산자 팝
@@ -551,6 +561,27 @@ final class ContentStreamParser {
       values.append(CGFloat(value))
     }
     return values
+  }
+
+  // MARK: - 미지원 요소 리포트
+
+  /// sh 연산자 — 셰이딩마다 보고한다.
+  fileprivate func reportShading(detail: String) {
+    report.add(.unsupportedShading, detail: detail)
+  }
+
+  /// BT 연산자 — 파스당 한 번만 보고한다.
+  fileprivate func reportTextOnce() {
+    guard !didReportText else { return }
+    didReportText = true
+    report.add(.unsupportedText, detail: "텍스트 (M4b에서 지원 예정)")
+  }
+
+  /// BI 연산자 — 파스당 한 번만 보고한다.
+  fileprivate func reportInlineImageOnce() {
+    guard !didReportInlineImage else { return }
+    didReportInlineImage = true
+    report.add(.unsupportedImage, detail: "인라인 이미지 (M4b에서 지원 예정)")
   }
 
   // MARK: - 결과 조립
