@@ -4,3 +4,6 @@
 xcuserdata/
 VectaApp/Vecta.xcodeproj
 VectaApp/build/
+
+# 하네스 재개 추적용 (커밋 대상 아님)
+docs/superpowers/plans/progress.md
