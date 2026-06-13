@@ -2,6 +2,10 @@ import AppKit
 import SwiftUI
 import VectaEngine
 
+/// 텍스트 섹션 행 레이블 폭 — 폰트/크기/색 행의 컨트롤 좌단을 한 열로 정렬
+/// (TransformSection의 레이블 정렬 idiom과 동일한 의도).
+private let textRowLabelWidth: CGFloat = 28
+
 /// 인스펙터 텍스트 섹션 — 폰트 패밀리, 크기, 색.
 struct TextSection: View {
   @ObservedObject var store: DocumentStore
@@ -44,6 +48,7 @@ private struct FontFamilyRow: View {
   var body: some View {
     HStack(spacing: 4) {
       Text("폰트").foregroundStyle(.secondary)
+        .frame(width: textRowLabelWidth, alignment: .trailing)
       Picker("폰트", selection: familyBinding) {
         ForEach(Self.availableFamilies, id: \.self) { family in
           Text(family).tag(family)
@@ -71,6 +76,7 @@ private struct FontSizeRow: View {
   var body: some View {
     HStack(spacing: 4) {
       Text("크기").foregroundStyle(.secondary)
+        .frame(width: textRowLabelWidth, alignment: .trailing)
       CommittingNumberField(value: CGFloat(textNode.fontSize)) { newSize in
         let clamped = max(1, newSize)
         store.updateSelectedTextNodes(actionName: "글자 크기 변경") { $0.fontSize = Double(clamped) }
@@ -87,7 +93,12 @@ private struct TextColorRow: View {
   let textNode: TextNode
 
   var body: some View {
-    ColorPicker("색", selection: colorBinding)
+    HStack(spacing: 4) {
+      Text("색").foregroundStyle(.secondary)
+        .frame(width: textRowLabelWidth, alignment: .trailing)
+      ColorPicker("색", selection: colorBinding).labelsHidden()
+      Spacer()
+    }
   }
 
   private var currentRGBA: RGBA {
