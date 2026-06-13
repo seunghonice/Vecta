@@ -16,6 +16,9 @@ public final class DocumentStore: ObservableObject {
 
   private let undoManagerProvider: () -> UndoManager?
   private var transientBase: VectorDocument?
+  /// 복제 등 apply 클로저 내부에서 만든 새 노드의 선택 ID를 클로저 밖으로
+  /// 전달하는 임시 버퍼 (DocumentStore+Clipboard.swift에서 접근).
+  var pendingSelection: Set<NodeID>?
 
   public init(
     document: VectorDocument,
