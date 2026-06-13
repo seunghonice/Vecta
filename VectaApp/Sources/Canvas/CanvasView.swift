@@ -137,6 +137,7 @@ final class CanvasView: NSView {
     case "p": toolState.activeTool = .pen
     case "m": toolState.activeTool = .rectangle
     case "l": toolState.activeTool = .ellipse
+    case "t": toolState.activeTool = .text
     default: return false
     }
     return true
@@ -166,6 +167,7 @@ extension CursorKind {
     switch self {
     case .arrow: return .arrow
     case .crosshair: return .crosshair
+    case .iBeam: return .iBeam
     }
   }
 }
