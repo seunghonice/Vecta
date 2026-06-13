@@ -139,6 +139,17 @@ private func makeStore(
   #expect(store.selection.isEmpty)
 }
 
+@Test @MainActor func pathfinderSubtractFullyCoveredRemovesAll() {
+  // 작은 베이스(최하단)를 더 큰 위 패스가 완전히 덮으면 차감 결과가 비어 모두 제거.
+  let bottom = rect(CGRect(x: 50, y: 50, width: 20, height: 20))
+  let top = rect(CGRect(x: 0, y: 0, width: 200, height: 200))
+  let store = makeStore(nodes: [.path(bottom), .path(top)])
+  store.select([bottom.id, top.id])
+  store.applyPathfinder(.subtract)
+  #expect(store.document.layers[0].nodes.isEmpty)
+  #expect(store.selection.isEmpty)
+}
+
 @Test @MainActor func pathfinderResultStaysAtBottomMostSlot() {
   // [최하단(sel), 비선택 X, 최상단(sel)] 합치기 → 결과는 최하단 자리(스펙),
   // 비선택 X는 결과 위에 남는다.
