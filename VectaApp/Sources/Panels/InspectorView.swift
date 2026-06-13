@@ -35,6 +35,10 @@ struct InspectorView: View {
           .padding(.top, 24)
       } else {
         VStack(alignment: .leading, spacing: InspectorLayout.sectionSpacing) {
+          if let textNode = store.selectionTextNode {
+            TextSection(store: store, textNode: textNode)
+            Divider()
+          }
           if let style = store.selectionPathStyle {
             FillSection(store: store, style: style)
             Divider()
