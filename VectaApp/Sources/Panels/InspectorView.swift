@@ -31,6 +31,8 @@ struct InspectorView: View {
           TransformSection(store: store)
           Divider()
           PathfinderSection(store: store)
+          Divider()
+          AlignSection(store: store)
         }
         .padding(InspectorLayout.padding)
       }
@@ -182,6 +184,52 @@ struct PathfinderSection: View {
       }
       .disabled(store.combinablePathCount < 2)
     }
+  }
+
+  private func button(
+    _ label: String, systemName: String, action: @escaping () -> Void
+  ) -> some View {
+    Button(action: action) {
+      Image(systemName: systemName)
+        .frame(width: 28, height: 28)
+    }
+    .buttonStyle(.bordered)
+    .help(label)
+    .accessibilityLabel(label)
+  }
+}
+
+/// 정렬 6종 — 선택된 노드 2개 이상에서 활성화 (스펙 §8).
+struct AlignSection: View {
+  @ObservedObject var store: DocumentStore
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 6) {
+      Text("정렬").font(.headline)
+      HStack(spacing: 6) {
+        button("왼쪽 정렬", systemName: "align.horizontal.left") {
+          store.alignSelection(edge: .left)
+        }
+        button("가로 가운데 정렬", systemName: "align.horizontal.center") {
+          store.alignSelection(edge: .centerHorizontal)
+        }
+        button("오른쪽 정렬", systemName: "align.horizontal.right") {
+          store.alignSelection(edge: .right)
+        }
+      }
+      HStack(spacing: 6) {
+        button("위 정렬", systemName: "align.vertical.top") {
+          store.alignSelection(edge: .top)
+        }
+        button("세로 가운데 정렬", systemName: "align.vertical.center") {
+          store.alignSelection(edge: .centerVertical)
+        }
+        button("아래 정렬", systemName: "align.vertical.bottom") {
+          store.alignSelection(edge: .bottom)
+        }
+      }
+    }
+    .disabled(store.selection.count < 2)
   }
 
   private func button(
