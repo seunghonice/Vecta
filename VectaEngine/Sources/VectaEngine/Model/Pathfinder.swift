@@ -35,6 +35,12 @@ extension VectorDocument {
       return model.normalized(using: rule)
     }
     let combined = Self.applyBoolean(normalized, operation: operation)
+    // 교집합 없음·완전 차감 등으로 결과가 비면 보이지 않는 빈 패스 노드를
+    // 남기지 않고 대상 패스를 모두 제거한다 (선택은 apply가 비운다).
+    guard !combined.isEmpty else {
+      removeTopLevelNodes(ids: Set(ordered.map(\.id)))
+      return nil
+    }
 
     let bottom = ordered[0]
     let result = PathNode(
@@ -61,8 +67,8 @@ extension VectorDocument {
     case .exclude:
       return rest.reduce(first) { $0.symmetricDifference($1, using: .winding) }
     case .subtract:
-      let top = rest.dropFirst().reduce(rest[0]) { $0.union($1, using: .winding) }
-      return first.subtracting(top, using: .winding)
+      // first(최하단)에서 위의 모든 패스를 차례로 뺀다 (X − A − B = X − (A∪B)).
+      return rest.reduce(first) { $0.subtracting($1, using: .winding) }
     }
   }
 }
