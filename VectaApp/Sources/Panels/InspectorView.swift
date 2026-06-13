@@ -5,6 +5,21 @@ enum InspectorLayout {
   static let sectionSpacing: CGFloat = 14
   static let fieldWidth: CGFloat = 64
   static let padding: CGFloat = 10
+  /// 패스파인더·정렬 아이콘 버튼 한 변 크기.
+  static let iconButtonSide: CGFloat = 28
+}
+
+/// 패스파인더·정렬 섹션 공용 아이콘 버튼 (bordered + 툴팁 + 접근성 레이블).
+private func inspectorIconButton(
+  _ label: String, systemName: String, action: @escaping () -> Void
+) -> some View {
+  Button(action: action) {
+    Image(systemName: systemName)
+      .frame(width: InspectorLayout.iconButtonSide, height: InspectorLayout.iconButtonSide)
+  }
+  .buttonStyle(.bordered)
+  .help(label)
+  .accessibilityLabel(label)
 }
 
 /// 우측 인스펙터 (스펙 §8) — 면/선/불투명도/변환 수치 + 패스파인더·정렬.
@@ -169,33 +184,23 @@ struct PathfinderSection: View {
     VStack(alignment: .leading, spacing: 6) {
       Text("패스파인더").font(.headline)
       HStack(spacing: 6) {
-        button("합치기", systemName: "plus.square.on.square") {
+        inspectorIconButton("합치기", systemName: "plus.square.on.square") {
           store.applyPathfinder(.unite)
         }
-        button("빼기", systemName: "minus.square") {
+        inspectorIconButton("빼기", systemName: "minus.square") {
           store.applyPathfinder(.subtract)
         }
-        button("교차", systemName: "square.on.square.intersection.dashed") {
+        inspectorIconButton("교차", systemName: "square.on.square.intersection.dashed") {
           store.applyPathfinder(.intersect)
         }
-        button("제외", systemName: "square.on.square.squareshape.controlhandles") {
+        inspectorIconButton(
+          "제외", systemName: "square.on.square.squareshape.controlhandles"
+        ) {
           store.applyPathfinder(.exclude)
         }
       }
       .disabled(store.combinablePathCount < 2)
     }
-  }
-
-  private func button(
-    _ label: String, systemName: String, action: @escaping () -> Void
-  ) -> some View {
-    Button(action: action) {
-      Image(systemName: systemName)
-        .frame(width: 28, height: 28)
-    }
-    .buttonStyle(.bordered)
-    .help(label)
-    .accessibilityLabel(label)
   }
 }
 
@@ -206,41 +211,32 @@ struct AlignSection: View {
   var body: some View {
     VStack(alignment: .leading, spacing: 6) {
       Text("정렬").font(.headline)
-      HStack(spacing: 6) {
-        button("왼쪽 정렬", systemName: "align.horizontal.left") {
-          store.alignSelection(edge: .left)
+      // 제목은 항상 활성, 버튼 행만 비활성화한다.
+      VStack(alignment: .leading, spacing: 6) {
+        HStack(spacing: 6) {
+          inspectorIconButton("왼쪽 정렬", systemName: "align.horizontal.left") {
+            store.alignSelection(edge: .left)
+          }
+          inspectorIconButton("가로 가운데 정렬", systemName: "align.horizontal.center") {
+            store.alignSelection(edge: .centerHorizontal)
+          }
+          inspectorIconButton("오른쪽 정렬", systemName: "align.horizontal.right") {
+            store.alignSelection(edge: .right)
+          }
         }
-        button("가로 가운데 정렬", systemName: "align.horizontal.center") {
-          store.alignSelection(edge: .centerHorizontal)
-        }
-        button("오른쪽 정렬", systemName: "align.horizontal.right") {
-          store.alignSelection(edge: .right)
+        HStack(spacing: 6) {
+          inspectorIconButton("위 정렬", systemName: "align.vertical.top") {
+            store.alignSelection(edge: .top)
+          }
+          inspectorIconButton("세로 가운데 정렬", systemName: "align.vertical.center") {
+            store.alignSelection(edge: .centerVertical)
+          }
+          inspectorIconButton("아래 정렬", systemName: "align.vertical.bottom") {
+            store.alignSelection(edge: .bottom)
+          }
         }
       }
-      HStack(spacing: 6) {
-        button("위 정렬", systemName: "align.vertical.top") {
-          store.alignSelection(edge: .top)
-        }
-        button("세로 가운데 정렬", systemName: "align.vertical.center") {
-          store.alignSelection(edge: .centerVertical)
-        }
-        button("아래 정렬", systemName: "align.vertical.bottom") {
-          store.alignSelection(edge: .bottom)
-        }
-      }
+      .disabled(store.selection.count < 2)
     }
-    .disabled(store.selection.count < 2)
-  }
-
-  private func button(
-    _ label: String, systemName: String, action: @escaping () -> Void
-  ) -> some View {
-    Button(action: action) {
-      Image(systemName: systemName)
-        .frame(width: 28, height: 28)
-    }
-    .buttonStyle(.bordered)
-    .help(label)
-    .accessibilityLabel(label)
   }
 }
