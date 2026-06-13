@@ -141,6 +141,43 @@ final class VectaDocument: NSDocument {
     store.applyPathfinder(.exclude)
   }
 
+  // MARK: - 편집 메뉴 클립보드 액션
+
+  @objc func copy(_ sender: Any?) {
+    writeSelectionToPasteboard()
+  }
+
+  @objc func cut(_ sender: Any?) {
+    guard writeSelectionToPasteboard() else { return }
+    store.deleteSelection()
+  }
+
+  @objc func paste(_ sender: Any?) {
+    let type = NSPasteboard.PasteboardType(NodeClipboard.pasteboardType)
+    guard let data = NSPasteboard.general.data(forType: type),
+      let nodes = NodeClipboard.decode(data)
+    else { return }
+    store.pasteNodes(nodes)
+  }
+
+  // 이름이 `duplicate(_:)`이면 NSDocument의 문서 복제 셀렉터와 충돌(#selector
+  // 모호 + 타이틀바 복제 동작 변경)하므로 선택 복제 전용 이름을 쓴다.
+  @objc func duplicateSelection(_ sender: Any?) {
+    store.duplicateSelection()
+  }
+
+  /// 선택 노드를 NSPasteboard 커스텀 타입으로 쓴다. 빈 선택이면 false.
+  @discardableResult
+  private func writeSelectionToPasteboard() -> Bool {
+    let nodes = store.copyableSelection()
+    guard !nodes.isEmpty, let data = NodeClipboard.encode(nodes) else { return false }
+    let pasteboard = NSPasteboard.general
+    pasteboard.clearContents()
+    pasteboard.setData(
+      data, forType: NSPasteboard.PasteboardType(NodeClipboard.pasteboardType))
+    return true
+  }
+
   override func validateUserInterfaceItem(_ item: NSValidatedUserInterfaceItem) -> Bool {
     switch item.action {
     case #selector(groupSelection(_:)), #selector(bringForward(_:)),
@@ -154,6 +191,11 @@ final class VectaDocument: NSDocument {
     case #selector(pathfinderUnite(_:)), #selector(pathfinderSubtract(_:)),
       #selector(pathfinderIntersect(_:)), #selector(pathfinderExclude(_:)):
       return store.combinablePathCount >= 2
+    case #selector(copy(_:)), #selector(cut(_:)), #selector(duplicateSelection(_:)):
+      return !store.selection.isEmpty
+    case #selector(paste(_:)):
+      let type = NSPasteboard.PasteboardType(NodeClipboard.pasteboardType)
+      return NSPasteboard.general.data(forType: type) != nil
     default:
       return super.validateUserInterfaceItem(item)
     }
