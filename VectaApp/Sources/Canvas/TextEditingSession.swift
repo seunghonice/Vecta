@@ -81,8 +81,15 @@ final class TextEditingSession: NSObject, NSTextViewDelegate {
     textView.font = font
     textView.textColor = seed.fill.nsColor
     textView.string = seed.string
+    // 점 텍스트 — soft-wrap 금지(명시적 \n만 줄바꿈). 컨테이너를 무한폭으로 두고
+    // 가로로 자라게 해 편집 중 모습과 확정 후 렌더(엔진은 \n만 줄바꿈)를 일치시킨다.
     textView.isVerticallyResizable = true
-    textView.isHorizontallyResizable = false
+    textView.isHorizontallyResizable = true
+    textView.textContainer?.widthTracksTextView = false
+    textView.textContainer?.containerSize = CGSize(
+      width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
+    textView.maxSize = CGSize(
+      width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
     return textView
   }
 

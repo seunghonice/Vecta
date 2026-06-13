@@ -1,4 +1,5 @@
 import CoreGraphics
+import CoreText
 import Foundation
 import Testing
 
@@ -114,4 +115,48 @@ private let heightTolerance: CGFloat = 2.0
   // Assert
   #expect(bounds.origin == origin, "fontSize=0 bounds.origin이 position과 다름")
   #expect(bounds.size == .zero, "fontSize=0 bounds.size가 zero가 아님")
+}
+
+// MARK: - 5. trailing / 중간 빈 줄도 한 줄로 계산 (R1)
+
+@Test func trailingAndEmptyLinesCountAsLines() {
+  let single = TextRendering.bounds(
+    string: "A", fontName: font, fontSize: size, position: origin)
+  let trailing = TextRendering.bounds(
+    string: "A\n", fontName: font, fontSize: size, position: origin)
+  let middleEmpty = TextRendering.bounds(
+    string: "A\n\nB", fontName: font, fontSize: size, position: origin)
+
+  // "A\n" = 2줄(마지막 빈 줄 포함), "A\n\nB" = 3줄
+  #expect(
+    abs(trailing.height - single.height * 2) < heightTolerance,
+    "trailing \\n 높이(\(trailing.height))가 2줄(\(single.height * 2))과 다름")
+  #expect(
+    abs(middleEmpty.height - single.height * 3) < heightTolerance,
+    "중간 빈 줄 높이(\(middleEmpty.height))가 3줄(\(single.height * 3))과 다름")
+}
+
+// MARK: - 6. lines() 의 dy 누적이 bounds().height 와 일관 (렌더↔측정 단일 규칙)
+
+@Test func linesDyAccumulationMatchesBoundsHeight() {
+  let string = "A\nBB\nCCC"
+  let entries = TextRendering.lines(
+    string: string, fontName: font, fontSize: size, color: .black)
+  let bounds = TextRendering.bounds(
+    string: string, fontName: font, fontSize: size, position: origin)
+
+  #expect(entries.count == 3, "줄 수(\(entries.count))가 3이 아님")
+  // dy 단조 증가 (첫 줄 0, 이후 누적)
+  for index in 1..<entries.count {
+    #expect(entries[index].dy > entries[index - 1].dy, "dy가 단조 증가하지 않음")
+  }
+  // 전체 높이 = 첫 줄 ascent + (마지막 줄 baseline dy + 마지막 줄 descent).
+  // 동일 폰트라 첫 줄 ascent == 마지막 줄 ascent.
+  var ascent: CGFloat = 0
+  var descent: CGFloat = 0
+  _ = CTLineGetTypographicBounds(entries[entries.count - 1].ctLine, &ascent, &descent, nil)
+  let expectedHeight = ascent + entries[entries.count - 1].dy + descent
+  #expect(
+    abs(bounds.height - expectedHeight) < heightTolerance,
+    "lines() dy 누적(\(expectedHeight))이 bounds 높이(\(bounds.height))와 불일치")
 }

@@ -28,26 +28,37 @@ private struct FontFamilyRow: View {
     NSFontManager.shared.availableFontFamilies.sorted()
   }()
 
-  /// 현재 fontName이 목록에 없으면 첫 번째 패밀리로 폴백.
+  /// 현재 fontName에 맞는 패밀리. PostScript명(예: "ArialMT")이면 패밀리명("Arial")으로
+  /// 역산해 임포트 텍스트가 엉뚱한 패밀리로 표시되는 것을 막는다. 그래도 없으면 첫 패밀리.
   private var currentFamily: String {
     let name = textNode.fontName
-    return Self.availableFamilies.contains(name) ? name : (Self.availableFamilies.first ?? name)
+    if Self.availableFamilies.contains(name) { return name }
+    if let resolved = NSFont(name: name, size: 12)?.familyName,
+      Self.availableFamilies.contains(resolved)
+    {
+      return resolved
+    }
+    return Self.availableFamilies.first ?? name
   }
 
   var body: some View {
-    Picker("폰트", selection: familyBinding) {
-      ForEach(Self.availableFamilies, id: \.self) { family in
-        Text(family).tag(family)
+    HStack(spacing: 4) {
+      Text("폰트").foregroundStyle(.secondary)
+      Picker("폰트", selection: familyBinding) {
+        ForEach(Self.availableFamilies, id: \.self) { family in
+          Text(family).tag(family)
+        }
       }
+      .labelsHidden()
+      .accessibilityLabel("폰트 패밀리")
     }
-    .labelsHidden()
   }
 
   private var familyBinding: Binding<String> {
     Binding(
       get: { currentFamily },
       set: { newFamily in
-        store.updateSelectedTextNodes(actionName: "폰트") { $0.fontName = newFamily }
+        store.updateSelectedTextNodes(actionName: "폰트 변경") { $0.fontName = newFamily }
       })
   }
 }
@@ -62,7 +73,7 @@ private struct FontSizeRow: View {
       Text("크기").foregroundStyle(.secondary)
       CommittingNumberField(value: CGFloat(textNode.fontSize)) { newSize in
         let clamped = max(1, newSize)
-        store.updateSelectedTextNodes(actionName: "글자 크기") { $0.fontSize = Double(clamped) }
+        store.updateSelectedTextNodes(actionName: "글자 크기 변경") { $0.fontSize = Double(clamped) }
       }
       .frame(width: InspectorLayout.fieldWidth)
       Text("pt").foregroundStyle(.secondary)
@@ -89,7 +100,7 @@ private struct TextColorRow: View {
       get: { currentRGBA.swiftUIColor },
       set: { newColor in
         let rgba = RGBA(newColor)
-        store.updateSelectedTextNodes(actionName: "텍스트 색") { $0.fill = .color(rgba) }
+        store.updateSelectedTextNodes(actionName: "텍스트 색 변경") { $0.fill = .color(rgba) }
       })
   }
 }

@@ -82,6 +82,16 @@ private func makeTextNode(string: String = "Hello") -> TextNode {
   #expect(!store.document.topLevelNodeIDs.contains(textNode.id))
 }
 
+@Test @MainActor func commitTextEditWithWhitespaceOnlyDeletesNode() {
+  // 공백/개행만 남은 편집도 "비어있음"으로 보고 삭제 — 생성 경로와 대칭 (R1).
+  let textNode = makeTextNode(string: "Hello")
+  let store = makeStore(textNode: textNode)
+
+  store.commitTextEdit(id: textNode.id, string: "  \n \t")
+
+  #expect(store.document.topLevelNode(id: textNode.id) == nil)
+}
+
 @Test @MainActor func commitTextEditWithEmptyStringUndoRestoresNode() {
   // Arrange
   let undoManager = UndoManager()
