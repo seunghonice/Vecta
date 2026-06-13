@@ -27,21 +27,10 @@ extension TextTool {
     guard
       let hitID = HitTesting.topmostNodeID(
         at: event.point, in: context.store.document, tolerance: event.hitTolerance),
-      isTextNode(id: hitID, in: context.store.document)
+      case .text = context.store.document.topLevelNode(id: hitID)
     else {
       return .create(at: event.point)
     }
     return .edit(hitID)
   }
-}
-
-/// 문서에서 주어진 ID의 노드가 TextNode인지 확인한다.
-@MainActor
-func isTextNode(id: NodeID, in document: VectorDocument) -> Bool {
-  for layer in document.layers {
-    for node in layer.nodes {
-      if node.id == id, case .text = node { return true }
-    }
-  }
-  return false
 }

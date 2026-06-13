@@ -22,7 +22,7 @@ public final class SelectTool: CanvasTool {
     if event.clickCount >= 2,
       let hitID = HitTesting.topmostNodeID(
         at: event.point, in: context.store.document, tolerance: event.hitTolerance),
-      isTextNode(id: hitID, in: context.store.document)
+      case .text = context.store.document.topLevelNode(id: hitID)
     {
       context.requestTextEditing(.edit(hitID))
       return
