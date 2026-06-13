@@ -13,12 +13,15 @@ final class CanvasView: NSView {
   // 도구 인스턴스는 제스처 상태를 보유하므로 여기서 1회 생성 후 캐시한다.
   private let tools: [ToolKind: CanvasTool] = Dictionary(
     uniqueKeysWithValues: ToolKind.allCases.map { ($0, $0.makeTool()) })
-  private lazy var toolContext = ToolContext(store: store) { [weak self] in
-    self?.needsDisplay = true
-  }
+  private lazy var toolContext = ToolContext(
+    store: store,
+    invalidateOverlay: { [weak self] in self?.needsDisplay = true },
+    requestTextEditing: { [weak self] request in self?.beginTextEditing(request) })
   private var subscriptions: Set<AnyCancellable> = []
   private var canvasTrackingArea: NSTrackingArea?
   private var currentToolKind: ToolKind
+  private var textEditingSession: TextEditingSession?
+  private var editingTextNodeID: NodeID?
 
   override var isFlipped: Bool { true }
   override var acceptsFirstResponder: Bool { true }
@@ -61,6 +64,8 @@ final class CanvasView: NSView {
     guard newKind != currentToolKind else { return }
     // 이전 도구의 미완 작업 정리 (펜: 미완 패스 완결, 직접선택: 편집 해제,
     // 선택: transient 취소).
+    // 도구 전환 전 활성 텍스트 세션 확정.
+    textEditingSession?.commit()
     tools[currentToolKind]?.deactivate(context: toolContext)
     store.cancelTransient()
     currentToolKind = newKind
@@ -92,8 +97,32 @@ final class CanvasView: NSView {
     guard let cgContext = NSGraphicsContext.current?.cgContext else { return }
     cgContext.setFillColor(CGColor.white)
     cgContext.fill(CGRect(origin: .zero, size: store.document.artboard.size))
-    SceneRenderer.render(store.document, in: cgContext)
+    SceneRenderer.render(
+      store.document, in: cgContext,
+      excluding: editingTextNodeID.map { [$0] } ?? [])
     activeTool.drawOverlay(in: cgContext, scale: magnification, context: toolContext)
+  }
+
+  // MARK: - 텍스트 편집 세션
+
+  /// 엔진 `requestTextEditing` 진입점 — 활성 세션을 확정한 뒤 새 세션을 연다.
+  private func beginTextEditing(_ request: TextEditRequest) {
+    textEditingSession?.commit()
+    let session = TextEditingSession(
+      request: request, host: self, store: store,
+      onFinish: { [weak self] in self?.finishTextEditing() })
+    guard let session else { return }
+    textEditingSession = session
+    editingTextNodeID = session.editingNodeID
+    needsDisplay = true
+  }
+
+  /// 세션 종료 통지 — 편집 노드 다시 표시·리드로우·포커스 복귀.
+  private func finishTextEditing() {
+    textEditingSession = nil
+    editingTextNodeID = nil
+    needsDisplay = true
+    window?.makeFirstResponder(self)
   }
 
   // MARK: - 이벤트 → CanvasEvent
@@ -107,6 +136,8 @@ final class CanvasView: NSView {
   }
 
   override func mouseDown(with event: NSEvent) {
+    // 바깥 클릭 확정 — 활성 세션을 먼저 닫고 도구 디스패치로 새 세션이 열린다.
+    textEditingSession?.commit()
     activeTool.mouseDown(canvasEvent(from: event), context: toolContext)
   }
 
