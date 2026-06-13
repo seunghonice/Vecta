@@ -65,6 +65,30 @@ private func makeStore(
   }
 }
 
+@Test @MainActor func alignCenterHorizontalCentersNodes() {
+  let a = rect(CGRect(x: 10, y: 10, width: 50, height: 50))
+  let b = rect(CGRect(x: 100, y: 100, width: 80, height: 30))
+  let store = makeStore(nodes: [.path(a), .path(b)])
+  store.select([a.id, b.id])
+  let midX = store.selectionBounds!.midX
+  store.alignSelection(edge: .centerHorizontal)
+  for node in store.document.layers[0].nodes {
+    #expect(abs(node.bounds.midX - midX) < 0.5)
+  }
+}
+
+@Test @MainActor func alignBottomMovesNodesToSelectionBottom() {
+  let a = rect(CGRect(x: 10, y: 10, width: 50, height: 50))
+  let b = rect(CGRect(x: 100, y: 100, width: 80, height: 30))
+  let store = makeStore(nodes: [.path(a), .path(b)])
+  store.select([a.id, b.id])
+  let bottom = store.selectionBounds!.maxY  // 130 (모델 y-아래: 아래 = 큰 y)
+  store.alignSelection(edge: .bottom)
+  for node in store.document.layers[0].nodes {
+    #expect(abs(node.bounds.maxY - bottom) < 0.5)
+  }
+}
+
 @Test @MainActor func alignRequiresTwoNodes() {
   let a = rect(CGRect(x: 10, y: 10, width: 50, height: 50))
   let store = makeStore(nodes: [.path(a)])

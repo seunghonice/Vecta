@@ -28,6 +28,26 @@ private func makeStore(nodes: [Node]) -> DocumentStore {
   #expect(copiedGroup.children[0].id != inner.id)
 }
 
+@Test func withFreshIDsRecursesNestedGroupsAndPreservesGeometry() {
+  let leaf = rect(CGRect(x: 1, y: 2, width: 3, height: 4))
+  let innerGroup = GroupNode(children: [.path(leaf)])
+  let outer = Node.group(GroupNode(children: [.group(innerGroup)]))
+  let copy = outer.withFreshIDs()
+  guard case .group(let outerCopy) = copy,
+    case .group(let innerCopy) = outerCopy.children[0],
+    case .path(let leafCopy) = innerCopy.children[0]
+  else {
+    Issue.record("중첩 그룹 구조 불일치")
+    return
+  }
+  // 모든 레벨 ID가 새로 발급됨.
+  #expect(outerCopy.id != outer.id)
+  #expect(innerCopy.id != innerGroup.id)
+  #expect(leafCopy.id != leaf.id)
+  // 지오메트리는 그대로 보존.
+  #expect(leafCopy.path == leaf.path)
+}
+
 @Test func nodeClipboardRoundTripsThroughData() {
   let a = Node.path(rect(CGRect(x: 5, y: 5, width: 20, height: 20)))
   let data = NodeClipboard.encode([a])
