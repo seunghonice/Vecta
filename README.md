@@ -32,5 +32,7 @@ open build/Build/Products/Debug/Vecta.app
 - [x] M4b-1 외부 .ai 임포트: 그라디언트 (sh·shading 패턴)
 - [x] M4b-2 외부 .ai 임포트: 이미지
 - [x] M4b-3 외부 .ai 임포트: 텍스트
-- [ ] M5 텍스트·이미지·패스파인더·정렬
+- [x] M5a 선택 조작: 패스파인더 4종·정렬 6종·복사/붙여넣기/복제
+- [ ] M5b 텍스트 도구 (인라인 입력)
+- [ ] M5c 이미지 배치 (Place Image…)
 - [ ] M6 마감
