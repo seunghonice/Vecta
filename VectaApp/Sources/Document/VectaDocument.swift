@@ -194,8 +194,9 @@ final class VectaDocument: NSDocument {
     case #selector(copy(_:)), #selector(cut(_:)), #selector(duplicateSelection(_:)):
       return !store.selection.isEmpty
     case #selector(paste(_:)):
+      // 데이터 전체를 역직렬화하지 않고 타입 존재만 확인 (메뉴 갱신마다 호출됨).
       let type = NSPasteboard.PasteboardType(NodeClipboard.pasteboardType)
-      return NSPasteboard.general.data(forType: type) != nil
+      return NSPasteboard.general.availableType(from: [type]) != nil
     default:
       return super.validateUserInterfaceItem(item)
     }

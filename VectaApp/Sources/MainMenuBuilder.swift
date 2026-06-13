@@ -92,10 +92,7 @@ enum MainMenuBuilder {
     let redo = menu.addItem(
       withTitle: "실행 복귀", action: Selector(("redo:")), keyEquivalent: "Z")
     redo.keyEquivalentModifierMask = [.command, .shift]
-    menu.addItem(.separator())
-    menu.addItem(
-      withTitle: "모두 선택",
-      action: #selector(NSResponder.selectAll(_:)), keyEquivalent: "a")
+    // macOS 관례 순서: 실행취소/복귀 → 잘라/복사/붙여/복제 → 모두 선택.
     menu.addItem(.separator())
     menu.addItem(
       withTitle: "잘라내기",
@@ -109,6 +106,10 @@ enum MainMenuBuilder {
     menu.addItem(
       withTitle: "복제",
       action: #selector(VectaDocument.duplicateSelection(_:)), keyEquivalent: "d")
+    menu.addItem(.separator())
+    menu.addItem(
+      withTitle: "모두 선택",
+      action: #selector(NSResponder.selectAll(_:)), keyEquivalent: "a")
     return menu
   }
 }
