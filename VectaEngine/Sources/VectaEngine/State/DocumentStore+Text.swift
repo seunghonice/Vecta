@@ -10,4 +10,29 @@ extension DocumentStore {
       apply(actionName: "텍스트 편집") { $0.updateTextNode(id: id) { $0.string = string } }
     }
   }
+
+  /// 인스펙터 표시용 대표 텍스트 노드 — 선택이 정확히 1개이고 그 노드가 텍스트일 때만 반환.
+  @MainActor public var selectionTextNode: TextNode? {
+    guard selection.count == 1, let id = selection.first else { return nil }
+    guard case .text(let textNode) = document.topLevelNode(id: id) else { return nil }
+    return textNode
+  }
+
+  /// 선택된 텍스트 노드의 속성을 일괄 변경한다 (apply 1회 = undo 1단계).
+  @MainActor public func updateSelectedTextNodes(
+    actionName: String, _ change: @escaping (inout TextNode) -> Void
+  ) {
+    let ids = selection
+    guard !ids.isEmpty else { return }
+    apply(actionName: actionName) { $0.updateTextNodes(ids: ids, change) }
+  }
+
+  /// 드래그 제스처용 미리보기 — begin/commitTransient 사이에서 undo 등록 없이 텍스트 속성 갱신.
+  @MainActor public func updateSelectedTextNodesTransient(
+    _ change: @escaping (inout TextNode) -> Void
+  ) {
+    let ids = selection
+    guard !ids.isEmpty else { return }
+    updateTransient { $0.updateTextNodes(ids: ids, change) }
+  }
 }
