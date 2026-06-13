@@ -18,6 +18,15 @@ public final class SelectTool: CanvasTool {
   public init() {}
 
   public func mouseDown(_ event: CanvasEvent, context: ToolContext) {
+    // 더블클릭 + 텍스트 노드 → 인라인 편집 요청 (드래그/선택 시작 안 함)
+    if event.clickCount >= 2,
+      let hitID = HitTesting.topmostNodeID(
+        at: event.point, in: context.store.document, tolerance: event.hitTolerance),
+      isTextNode(id: hitID, in: context.store.document)
+    {
+      context.requestTextEditing(.edit(hitID))
+      return
+    }
     // 이전 제스처가 정리되지 않은 경우 방어 (이중 mouseDown, 시스템 인터럽트 등)
     if case .idle = dragState {
     } else {

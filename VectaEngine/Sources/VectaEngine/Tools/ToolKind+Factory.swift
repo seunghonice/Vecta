@@ -11,6 +11,7 @@ extension ToolKind {
     case .pen: return PenTool()
     case .rectangle: return ShapeTool(shape: .rectangle)
     case .ellipse: return ShapeTool(shape: .ellipse)
+    case .text: return TextTool()
     }
   }
 }
