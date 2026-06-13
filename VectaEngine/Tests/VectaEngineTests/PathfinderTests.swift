@@ -98,6 +98,21 @@ private func makeStore(
   #expect(store.document.layers[0].nodes.count == 2)
 }
 
+@Test @MainActor func pathfinderPreservesNonPathNodesInSelection() {
+  // 패스 2개 + 텍스트 1개 동시 선택 → 패스만 결합되고 텍스트는 남는다.
+  let bottom = rect(CGRect(x: 0, y: 0, width: 100, height: 100))
+  let top = rect(CGRect(x: 50, y: 50, width: 100, height: 100))
+  let text = TextNode(
+    string: "안녕", fontName: "Helvetica", fontSize: 12,
+    fill: .color(.black), position: CGPoint(x: 10, y: 10))
+  let store = makeStore(nodes: [.path(bottom), .path(top), .text(text)])
+  store.select([bottom.id, top.id, text.id])
+  store.applyPathfinder(.unite)
+  // 결합 패스 1개 + 텍스트 1개 = 2개.
+  #expect(store.document.layers[0].nodes.count == 2)
+  #expect(store.document.layers[0].nodes.contains { $0.id == text.id })
+}
+
 @Test @MainActor func pathfinderIsSingleUndoStep() {
   let undoManager = UndoManager()
   let a = rect(CGRect(x: 0, y: 0, width: 100, height: 100))

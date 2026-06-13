@@ -44,7 +44,7 @@ extension VectorDocument {
       fillRule: .winding)
 
     updateTopLevelNodes(ids: [bottom.id]) { _ in .path(result) }
-    removeTopLevelNodes(ids: ids.subtracting([bottom.id]))
+    removeTopLevelNodes(ids: Set(ordered.dropFirst().map(\.id)))
     return result.id
   }
 
