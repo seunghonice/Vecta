@@ -156,6 +156,30 @@ extension VectorDocument {
       return node
     }
   }
+
+  /// 깊이에 상관없이 id 텍스트 노드 하나를 변경한다. 비텍스트 노드면 no-op.
+  public mutating func updateTextNode(id: NodeID, _ change: (inout TextNode) -> Void) {
+    for layerIndex in layers.indices {
+      layers[layerIndex].nodes = layers[layerIndex].nodes.map {
+        updatingTextNode($0, id: id, change)
+      }
+    }
+  }
+
+  private func updatingTextNode(
+    _ node: Node, id: NodeID, _ change: (inout TextNode) -> Void
+  ) -> Node {
+    switch node {
+    case .text(var textNode):
+      if textNode.id == id { change(&textNode) }
+      return .text(textNode)
+    case .group(var group):
+      group.children = group.children.map { updatingTextNode($0, id: id, change) }
+      return .group(group)
+    case .path, .image:
+      return node
+    }
+  }
 }
 
 extension VectorDocument {
