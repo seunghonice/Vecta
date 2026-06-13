@@ -7,7 +7,7 @@ enum InspectorLayout {
   static let padding: CGFloat = 10
 }
 
-/// 우측 인스펙터 (스펙 §8) — 면/선/불투명도/변환 수치. 패스파인더·정렬은 M5.
+/// 우측 인스펙터 (스펙 §8) — 면/선/불투명도/변환 수치 + 패스파인더·정렬.
 struct InspectorView: View {
   @ObservedObject var store: DocumentStore
 
@@ -29,6 +29,8 @@ struct InspectorView: View {
             Divider()
           }
           TransformSection(store: store)
+          Divider()
+          PathfinderSection(store: store)
         }
         .padding(InspectorLayout.padding)
       }
@@ -154,5 +156,43 @@ struct CommittingNumberField: View {
       .grouping(.never)
       .precision(.fractionLength(0...2))
     return Double(number).formatted(style)
+  }
+}
+
+/// 패스파인더 4종 — 선택된 패스 2개 이상에서 활성화 (스펙 §8).
+struct PathfinderSection: View {
+  @ObservedObject var store: DocumentStore
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 6) {
+      Text("패스파인더").font(.headline)
+      HStack(spacing: 6) {
+        button("합치기", systemName: "plus.square.on.square") {
+          store.applyPathfinder(.unite)
+        }
+        button("빼기", systemName: "minus.square") {
+          store.applyPathfinder(.subtract)
+        }
+        button("교차", systemName: "square.on.square.intersection.dashed") {
+          store.applyPathfinder(.intersect)
+        }
+        button("제외", systemName: "square.on.square.squareshape.controlhandles") {
+          store.applyPathfinder(.exclude)
+        }
+      }
+      .disabled(store.combinablePathCount < 2)
+    }
+  }
+
+  private func button(
+    _ label: String, systemName: String, action: @escaping () -> Void
+  ) -> some View {
+    Button(action: action) {
+      Image(systemName: systemName)
+        .frame(width: 28, height: 28)
+    }
+    .buttonStyle(.bordered)
+    .help(label)
+    .accessibilityLabel(label)
   }
 }

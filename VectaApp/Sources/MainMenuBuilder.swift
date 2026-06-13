@@ -67,6 +67,19 @@ enum MainMenuBuilder {
     menu.addItem(
       withTitle: "뒤로 보내기",
       action: #selector(VectaDocument.sendBackward(_:)), keyEquivalent: "[")
+    menu.addItem(.separator())
+    menu.addItem(
+      withTitle: "합치기",
+      action: #selector(VectaDocument.pathfinderUnite(_:)), keyEquivalent: "")
+    menu.addItem(
+      withTitle: "빼기",
+      action: #selector(VectaDocument.pathfinderSubtract(_:)), keyEquivalent: "")
+    menu.addItem(
+      withTitle: "교차",
+      action: #selector(VectaDocument.pathfinderIntersect(_:)), keyEquivalent: "")
+    menu.addItem(
+      withTitle: "제외",
+      action: #selector(VectaDocument.pathfinderExclude(_:)), keyEquivalent: "")
     return menu
   }
 

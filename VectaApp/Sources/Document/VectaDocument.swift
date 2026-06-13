@@ -123,6 +123,24 @@ final class VectaDocument: NSDocument {
     store.sendSelectionBackward()
   }
 
+  // MARK: - 패스파인더 액션 (오브젝트 메뉴 — MainMenuBuilder가 연결)
+
+  @objc func pathfinderUnite(_ sender: Any?) {
+    store.applyPathfinder(.unite)
+  }
+
+  @objc func pathfinderSubtract(_ sender: Any?) {
+    store.applyPathfinder(.subtract)
+  }
+
+  @objc func pathfinderIntersect(_ sender: Any?) {
+    store.applyPathfinder(.intersect)
+  }
+
+  @objc func pathfinderExclude(_ sender: Any?) {
+    store.applyPathfinder(.exclude)
+  }
+
   override func validateUserInterfaceItem(_ item: NSValidatedUserInterfaceItem) -> Bool {
     switch item.action {
     case #selector(groupSelection(_:)), #selector(bringForward(_:)),
@@ -133,6 +151,9 @@ final class VectaDocument: NSDocument {
         if case .group? = store.document.topLevelNode(id: id) { return true }
         return false
       }
+    case #selector(pathfinderUnite(_:)), #selector(pathfinderSubtract(_:)),
+      #selector(pathfinderIntersect(_:)), #selector(pathfinderExclude(_:)):
+      return store.combinablePathCount >= 2
     default:
       return super.validateUserInterfaceItem(item)
     }
