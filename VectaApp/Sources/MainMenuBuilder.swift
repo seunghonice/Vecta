@@ -67,6 +67,19 @@ enum MainMenuBuilder {
     menu.addItem(
       withTitle: "뒤로 보내기",
       action: #selector(VectaDocument.sendBackward(_:)), keyEquivalent: "[")
+    menu.addItem(.separator())
+    menu.addItem(
+      withTitle: "합치기",
+      action: #selector(VectaDocument.pathfinderUnite(_:)), keyEquivalent: "")
+    menu.addItem(
+      withTitle: "빼기",
+      action: #selector(VectaDocument.pathfinderSubtract(_:)), keyEquivalent: "")
+    menu.addItem(
+      withTitle: "교차",
+      action: #selector(VectaDocument.pathfinderIntersect(_:)), keyEquivalent: "")
+    menu.addItem(
+      withTitle: "제외",
+      action: #selector(VectaDocument.pathfinderExclude(_:)), keyEquivalent: "")
     return menu
   }
 
@@ -79,6 +92,20 @@ enum MainMenuBuilder {
     let redo = menu.addItem(
       withTitle: "실행 복귀", action: Selector(("redo:")), keyEquivalent: "Z")
     redo.keyEquivalentModifierMask = [.command, .shift]
+    // macOS 관례 순서: 실행취소/복귀 → 잘라/복사/붙여/복제 → 모두 선택.
+    menu.addItem(.separator())
+    menu.addItem(
+      withTitle: "잘라내기",
+      action: #selector(VectaDocument.cut(_:)), keyEquivalent: "x")
+    menu.addItem(
+      withTitle: "복사",
+      action: #selector(VectaDocument.copy(_:)), keyEquivalent: "c")
+    menu.addItem(
+      withTitle: "붙여넣기",
+      action: #selector(VectaDocument.paste(_:)), keyEquivalent: "v")
+    menu.addItem(
+      withTitle: "복제",
+      action: #selector(VectaDocument.duplicateSelection(_:)), keyEquivalent: "d")
     menu.addItem(.separator())
     menu.addItem(
       withTitle: "모두 선택",
