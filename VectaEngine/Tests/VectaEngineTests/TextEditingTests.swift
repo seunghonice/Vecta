@@ -155,3 +155,44 @@ private func makeTextNode(string: String = "Hello") -> TextNode {
   // Assert — 문서가 변경 없어야 함
   #expect(document == before)
 }
+
+// MARK: - DocumentStore.updateTextNode(id:actionName:): 선택 비의존 단건 타겟
+
+@Test @MainActor func storeUpdateTextNodeTargetsOnlyGivenIdRegardlessOfSelection() {
+  // 인스펙터 색/서식 경로 — 표시 노드 id를 직접 타겟하므로 선택과 무관하게 그 노드만.
+  let target = makeTextNode(string: "A")
+  let other = makeTextNode(string: "B")
+  let store = makeStore(textNode: target, extraNodes: [.text(other)])
+  store.select([other.id])  // 일부러 다른 노드를 선택
+
+  store.updateTextNode(id: target.id, actionName: "텍스트 색 변경") {
+    $0.fill = .color(RGBA(red: 1, green: 0, blue: 0, alpha: 1))
+  }
+
+  guard case .text(let t) = store.document.topLevelNode(id: target.id),
+    case .color(let targetColor) = t.fill,
+    case .text(let o) = store.document.topLevelNode(id: other.id),
+    case .color(let otherColor) = o.fill
+  else {
+    Issue.record("노드를 찾을 수 없음")
+    return
+  }
+  #expect(targetColor == RGBA(red: 1, green: 0, blue: 0, alpha: 1))
+  #expect(otherColor == .black)  // 선택돼 있어도 변경 안 됨
+}
+
+@Test @MainActor func storeUpdateTextNodeIsSingleUndoStep() {
+  let undoManager = UndoManager()
+  let node = makeTextNode(string: "A")
+  let store = makeStore(textNode: node, undoManager: undoManager)
+
+  store.updateTextNode(id: node.id, actionName: "글자 크기 변경") { $0.fontSize = 48 }
+  #expect(undoManager.canUndo)
+  undoManager.undo()
+
+  guard case .text(let restored) = store.document.topLevelNode(id: node.id) else {
+    Issue.record("undo 후 노드를 찾을 수 없음")
+    return
+  }
+  #expect(restored.fontSize == 24)
+}

@@ -12,6 +12,14 @@ extension DocumentStore {
     }
   }
 
+  /// 특정 텍스트 노드 하나를 변경한다 (apply 1회 = undo 1단계). 인스펙터가
+  /// 표시 중인 노드 id를 직접 타겟하므로 선택 상태 변화에 영향받지 않는다.
+  @MainActor public func updateTextNode(
+    id: NodeID, actionName: String, _ change: @escaping (inout TextNode) -> Void
+  ) {
+    apply(actionName: actionName) { $0.updateTextNode(id: id, change) }
+  }
+
   /// 인스펙터 표시용 대표 텍스트 노드 — 선택이 정확히 1개이고 그 노드가 텍스트일 때만 반환.
   @MainActor public var selectionTextNode: TextNode? {
     guard selection.count == 1, let id = selection.first else { return nil }
