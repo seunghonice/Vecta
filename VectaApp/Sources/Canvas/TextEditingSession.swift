@@ -9,8 +9,10 @@ import VectaEngine
 /// 폰트는 모델 포인트 크기 그대로 쓴다.
 @MainActor
 final class TextEditingSession: NSObject, NSTextViewDelegate {
-  /// 텍스트뷰 최소 입력 폭 (한 글자도 못 들어가는 0폭 방지).
-  private static let minimumWidth: CGFloat = 160
+  /// 빈/짧은 텍스트의 최소 폭 (캐럿이 들어갈 공간). 내용이 길어지면 자동 확장된다.
+  private static let minimumWidth: CGFloat = 8
+  /// 마지막 글자/캐럿이 잘리지 않도록 두는 뒤쪽 여유.
+  private static let trailingPad: CGFloat = 3
 
   private unowned let host: NSView
   private let store: DocumentStore
@@ -50,7 +52,7 @@ final class TextEditingSession: NSObject, NSTextViewDelegate {
       seed = Seed.editing(textNode)
     }
 
-    textView = TextEditingSession.makeTextView(seed: seed, hostWidth: host.bounds.width)
+    textView = TextEditingSession.makeTextView(seed: seed)
     super.init()
     textView.delegate = self
     begin()
@@ -68,11 +70,12 @@ final class TextEditingSession: NSObject, NSTextViewDelegate {
     host.addSubview(textView)
     host.window?.makeFirstResponder(textView)
     textView.setSelectedRange(NSRange(location: textView.string.count, length: 0))
+    sizeToFitContent()
   }
 
-  private static func makeTextView(seed: Seed, hostWidth: CGFloat) -> NSTextView {
+  private static func makeTextView(seed: Seed) -> NSTextView {
     let font = seed.font
-    let frame = textViewFrame(seed: seed, font: font, hostWidth: hostWidth)
+    let frame = textViewFrame(seed: seed, font: font)
     let textView = NSTextView(frame: frame)
     textView.isRichText = false
     textView.drawsBackground = false
@@ -82,24 +85,45 @@ final class TextEditingSession: NSObject, NSTextViewDelegate {
     textView.textColor = seed.fill.nsColor
     textView.string = seed.string
     // 점 텍스트 — soft-wrap 금지(명시적 \n만 줄바꿈). 컨테이너를 무한폭으로 두고
-    // 가로로 자라게 해 편집 중 모습과 확정 후 렌더(엔진은 \n만 줄바꿈)를 일치시킨다.
+    // 내용 크기로 그린다(아래 sizeToFitContent): 오버레이가 글자에 딱 맞아야
+    // 바깥 클릭이 캔버스에 닿아 확정된다(넓으면 클릭이 투명 텍스트뷰에 먹힘).
     textView.isVerticallyResizable = true
     textView.isHorizontallyResizable = true
     textView.textContainer?.widthTracksTextView = false
     textView.textContainer?.containerSize = CGSize(
       width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
+    textView.minSize = frame.size
     textView.maxSize = CGSize(
       width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
     return textView
   }
 
-  /// 모델 baseline → flipped 뷰 top 보정 (첫 줄 ascent만큼 위로).
-  private static func textViewFrame(seed: Seed, font: NSFont, hostWidth: CGFloat) -> NSRect {
+  /// 모델 baseline → flipped 뷰 top 보정 (첫 줄 ascent만큼 위로). 폭은 최소폭으로
+  /// 시작하고 내용에 맞춰 sizeToFitContent가 확장한다.
+  private static func textViewFrame(seed: Seed, font: NSFont) -> NSRect {
     let originX = seed.position.x
     let originY = seed.position.y - font.ascender
-    let width = max(Self.minimumWidth, hostWidth - originX)
     let height = font.ascender - font.descender + font.leading
-    return NSRect(x: originX, y: originY, width: width, height: height)
+    return NSRect(x: originX, y: originY, width: Self.minimumWidth, height: height)
+  }
+
+  /// 텍스트뷰 프레임을 내용 크기로 맞춘다 — 오버레이를 글자에 딱 맞게 유지해
+  /// 바깥 클릭이 캔버스(확정)로 전달되게 한다. 원점(baseline 기준)은 보존.
+  private func sizeToFitContent() {
+    guard let layoutManager = textView.layoutManager,
+      let container = textView.textContainer
+    else { return }
+    layoutManager.ensureLayout(for: container)
+    let used = layoutManager.usedRect(for: container)
+    var frame = textView.frame
+    frame.size.width = max(Self.minimumWidth, ceil(used.width) + Self.trailingPad)
+    frame.size.height = max(frame.size.height, ceil(used.height))
+    textView.frame = frame
+  }
+
+  /// 타이핑할 때마다 오버레이를 내용 크기로 재조정.
+  func textDidChange(_ notification: Notification) {
+    sizeToFitContent()
   }
 
   // MARK: - 확정
