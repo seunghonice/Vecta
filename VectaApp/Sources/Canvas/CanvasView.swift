@@ -114,6 +114,11 @@ final class CanvasView: NSView {
     guard let session else { return }
     textEditingSession = session
     editingTextNodeID = session.editingNodeID
+    // 기존 텍스트 편집 진입 시 그 노드를 선택해 인스펙터가 편집 대상을 반영하도록
+    // 한다(선택이 빠지면 인스펙터·색 변경이 이전 선택 노드에 적용되는 버그).
+    if let editingID = session.editingNodeID {
+      store.select([editingID])
+    }
     needsDisplay = true
   }
 
