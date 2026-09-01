@@ -35,7 +35,12 @@ struct InspectorView: View {
           .padding(.top, 24)
       } else {
         VStack(alignment: .leading, spacing: InspectorLayout.sectionSpacing) {
-          if let style = store.selectionPathStyle {
+          // 텍스트(단일 선택)와 패스 스타일은 상호 배타 — selectionTextNode가 있으면
+          // selection은 텍스트 1개뿐이라 selectionPathStyle은 nil이다.
+          if let textNode = store.selectionTextNode {
+            TextSection(store: store, textNode: textNode)
+            Divider()
+          } else if let style = store.selectionPathStyle {
             FillSection(store: store, style: style)
             Divider()
             StrokeSection(store: store, style: style)

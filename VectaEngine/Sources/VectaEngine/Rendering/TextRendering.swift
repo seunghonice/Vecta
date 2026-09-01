@@ -34,18 +34,45 @@ enum TextRendering {
     return CGFloat(CTLineGetTypographicBounds(ctLine, nil, nil, nil))
   }
 
+  /// 폰트의 균일 줄 메트릭. 모든 줄에 같은 높이를 써서 빈 줄도 한 줄을 차지하고
+  /// (개행만으로 만든 빈 줄이 붕괴하지 않음) 측정·렌더가 단일 규칙을 공유한다.
+  static func lineMetrics(fontName: String, fontSize: CGFloat) -> (ascent: CGFloat, height: CGFloat)
+  {
+    let ctFont = font(named: fontName, size: fontSize)
+    let ascent = CTFontGetAscent(ctFont)
+    return (ascent, ascent + CTFontGetDescent(ctFont))
+  }
+
   /// 텍스트 바운드 (position 기준, 모델 좌표 — baseline 위로 ascent, 아래로 descent).
   /// 모델은 top-down이므로 baseline 위쪽(ascent)이 y 작은 방향.
+  /// 멀티라인: 폭=각 줄 advance 최대값, 높이=균일 줄높이 × 줄 수. position은 첫 줄 baseline.
   static func bounds(
     string: String, fontName: String, fontSize: CGFloat, position: CGPoint
   ) -> CGRect {
     guard fontSize > 0, !string.isEmpty else { return CGRect(origin: position, size: .zero) }
-    let ctLine = line(string, fontName: fontName, fontSize: fontSize, color: .black)
-    var ascent: CGFloat = 0
-    var descent: CGFloat = 0
-    let width = CGFloat(CTLineGetTypographicBounds(ctLine, &ascent, &descent, nil))
-    // 모델 top-down: position이 baseline. ascent는 위(y−), descent는 아래(y+).
+    let lineStrings = string.components(separatedBy: "\n")
+    let metrics = lineMetrics(fontName: fontName, fontSize: fontSize)
+    let maxWidth =
+      lineStrings.map {
+        advanceWidth(string: $0, fontName: fontName, fontSize: fontSize)
+      }.max() ?? 0
+    let totalHeight = metrics.height * CGFloat(lineStrings.count)
     return CGRect(
-      x: position.x, y: position.y - ascent, width: width, height: ascent + descent)
+      x: position.x, y: position.y - metrics.ascent, width: maxWidth, height: totalHeight)
+  }
+
+  /// 줄별 CTLine + 첫 줄 baseline 기준 y오프셋 목록.
+  /// dy는 top-down 모델 기준 — 첫 줄 0, 이후 줄은 균일 줄높이 누적(아래 방향).
+  static func lines(
+    string: String, fontName: String, fontSize: CGFloat, color: CGColor
+  ) -> [(ctLine: CTLine, dy: CGFloat)] {
+    guard fontSize > 0, !string.isEmpty else { return [] }
+    let lineHeight = lineMetrics(fontName: fontName, fontSize: fontSize).height
+    return string.components(separatedBy: "\n").enumerated().map { index, lineString in
+      (
+        line(lineString, fontName: fontName, fontSize: fontSize, color: color),
+        CGFloat(index) * lineHeight
+      )
+    }
   }
 }

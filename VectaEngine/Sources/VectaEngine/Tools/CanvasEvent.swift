@@ -29,6 +29,7 @@ public enum CanvasKey: Equatable, Sendable {
 public enum CursorKind: Equatable, Sendable {
   case arrow
   case crosshair
+  case iBeam
 }
 
 public enum ToolKind: String, CaseIterable, Equatable, Sendable {
@@ -37,4 +38,5 @@ public enum ToolKind: String, CaseIterable, Equatable, Sendable {
   case pen
   case rectangle
   case ellipse
+  case text
 }

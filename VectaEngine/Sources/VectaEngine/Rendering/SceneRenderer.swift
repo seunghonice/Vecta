@@ -7,9 +7,11 @@ import Foundation
 /// 계약: 호출 시점의 CTM이 모델 좌표(top-left 원점, y 아래 방향)를 매핑해야
 /// 한다. flipped NSView는 그대로, PDF 컨텍스트는 플립 후 호출한다.
 public enum SceneRenderer {
-  public static func render(_ document: VectorDocument, in context: CGContext) {
+  public static func render(
+    _ document: VectorDocument, in context: CGContext, excluding: Set<NodeID> = []
+  ) {
     for layer in document.layers where layer.isVisible {
-      for node in layer.nodes {
+      for node in layer.nodes where !excluding.contains(node.id) {
         render(node, in: context)
       }
     }
@@ -83,16 +85,19 @@ public enum SceneRenderer {
     else { return }
     context.saveGState()
     context.concatenate(textNode.transform.cgAffineTransform)
-    let ctLine = TextRendering.line(
-      textNode.string, fontName: textNode.fontName,
+    let lineEntries = TextRendering.lines(
+      string: textNode.string, fontName: textNode.fontName,
       fontSize: CGFloat(textNode.fontSize), color: rgba.cgColor)
-    // 모델은 top-down(y-down). renderToBitmap이 scale(1,-1)로 컨텍스트를 플립하므로
-    // SceneRenderer 호출 시점의 y는 위 방향. position으로 이동 후 로컬에서 다시 플립하면
-    // CoreText가 정립(y-up 베이스라인 위로 오름)으로 그려진다.
-    context.translateBy(x: textNode.position.x, y: textNode.position.y)
-    context.scaleBy(x: 1, y: -1)
-    context.textPosition = .zero
-    CTLineDraw(ctLine, context)
+    // 모델은 top-down(y-down). 줄별 baseline = position.y + dy.
+    // scale(1,-1) 플립 후 CoreText가 정립(y-up)으로 그린다.
+    for (ctLine, dy) in lineEntries {
+      context.saveGState()
+      context.translateBy(x: textNode.position.x, y: textNode.position.y + dy)
+      context.scaleBy(x: 1, y: -1)
+      context.textPosition = .zero
+      CTLineDraw(ctLine, context)
+      context.restoreGState()
+    }
     context.restoreGState()
   }
 

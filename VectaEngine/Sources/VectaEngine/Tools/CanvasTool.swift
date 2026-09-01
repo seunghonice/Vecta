@@ -32,9 +32,16 @@ public final class ToolContext {
   public let store: DocumentStore
   /// 모델 변경 없이 오버레이만 바뀌었을 때 호출 (모델 변경은 store가 발행).
   public var invalidateOverlay: () -> Void
+  /// 텍스트 생성/편집 요청 — 앱 레이어가 에디터 UI를 띄운다.
+  public var requestTextEditing: (TextEditRequest) -> Void
 
-  public init(store: DocumentStore, invalidateOverlay: @escaping () -> Void = {}) {
+  public init(
+    store: DocumentStore,
+    invalidateOverlay: @escaping () -> Void = {},
+    requestTextEditing: @escaping (TextEditRequest) -> Void = { _ in }
+  ) {
     self.store = store
     self.invalidateOverlay = invalidateOverlay
+    self.requestTextEditing = requestTextEditing
   }
 }

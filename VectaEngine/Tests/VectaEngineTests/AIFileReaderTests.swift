@@ -18,6 +18,22 @@ import Testing
   #expect(result.report.isEmpty)
 }
 
+@Test func multilineTextNodeRoundTripsThroughReader() throws {
+  // M5b 성공기준 — 여러 줄 텍스트가 저장·재열기에서 100% 보존된다.
+  var document = VectorDocument.empty(size: CGSize(width: 300, height: 200))
+  document.layers[0].nodes = [
+    .text(
+      TextNode(
+        string: "첫 줄\n둘째 줄\nthird line",
+        fontName: "Helvetica", fontSize: 24,
+        fill: .color(RGBA(red: 0, green: 0, blue: 0, alpha: 1)),
+        position: CGPoint(x: 30, y: 60)))
+  ]
+  let data = try AIFileWriter.data(for: document)
+  let result = try AIFileReader.read(from: data)
+  #expect(result.document == document)
+}
+
 @Test func foreignPDFParsesViaContentStream() throws {
   // 외부 도구가 만든 PDF(페이로드 없음): M4 이후 파서 폴백으로 처리된다
   let raw = NSMutableData()

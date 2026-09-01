@@ -14,6 +14,7 @@ extension ToolKind {
     case .pen: return "펜"
     case .rectangle: return "사각형"
     case .ellipse: return "타원"
+    case .text: return "텍스트"
     }
   }
 
@@ -24,6 +25,7 @@ extension ToolKind {
     case .pen: return "pencil.tip"
     case .rectangle: return "rectangle"
     case .ellipse: return "circle"
+    case .text: return "textformat"
     }
   }
 }

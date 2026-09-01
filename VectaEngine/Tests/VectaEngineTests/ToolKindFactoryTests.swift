@@ -10,5 +10,6 @@ import Testing
   #expect(ToolKind.pen.makeTool() is PenTool)
   #expect(ToolKind.rectangle.makeTool() is ShapeTool)
   #expect(ToolKind.ellipse.makeTool() is ShapeTool)
-  #expect(ToolKind.allCases.count == 5)
+  #expect(ToolKind.text.makeTool() is TextTool)
+  #expect(ToolKind.allCases.count == 6)
 }
